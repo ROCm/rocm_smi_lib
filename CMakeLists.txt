@@ -178,6 +178,13 @@ set(ROCR_LIBS ${ROCR_LIBS} hsa-runtime${ONLY64STR})
 include_directories(${ROCR_INC_DIR} ${OPENCL_INC_DIR})
 
 ###########################
+# rocm_agent_enumerator
+###########################
+
+configure_file(rocm_agent_enumerator rocm_agent_enumerator COPYONLY)
+
+
+###########################
 # SAMPLE SPECIFIC SECTION
 ###########################
 
