@@ -79,8 +79,8 @@ def readFromROCMINFO():
   try:
     # run rocminfo
     rocminfo_output = subprocess.Popen(rocminfo_executable, stdout=subprocess.PIPE).communicate()[0].split('\n')
-  except Error as e:
-    pass
+  except:
+    rocminfo_output = []
 
   # search AMDGCN gfx ISA
   line_search_term = re.compile("\A\s+Name:\s+(gfx\d+)")
@@ -98,8 +98,8 @@ def readFromLSPCI():
   try:
     # run lspci
     lspci_output = subprocess.Popen(["/usr/bin/lspci", "-n", "-d", "1002:"], stdout=subprocess.PIPE).communicate()[0].split('\n')
-  except Error as e:
-    pass
+  except:
+    lspci_output = []
 
   target_search_term = re.compile("1002:\w+")
   for line in lspci_output:
