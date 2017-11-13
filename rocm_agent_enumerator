@@ -1,0 +1,147 @@
+#!/usr/bin/python
+
+import os
+import re
+import subprocess
+import sys
+
+# get current working directory
+CWD = os.path.dirname(os.path.realpath(__file__))
+
+ISA_TO_ID = {
+  # Kaveri - Temporary
+  "gfx700" : [0x130f],
+  # Hawaii
+  "gfx701" : [0x67a0, 0x67a1, 0x67a2, 0x67a8, 0x67a9, 0x67aa, 0x67b0, 0x67b1,
+              0x67b8, 0x67b9, 0x67ba, 0x67be],
+  # Carrizo
+  "gfx801" : [0x9870, 0x9874, 0x9875, 0x9876, 0x9877, 0x98e4],
+  # Tonga
+  "gfx802" : [0x6920, 0x6921, 0x6928, 0x6929, 0x692b, 0x692f, 0x6930, 0x6938,
+              0x6939],
+  # Fiji
+  "gfx803" : [0x7300, 0x730f,
+  # Polaris10
+              0x67c0, 0x67c1, 0x67c2, 0x67c4, 0x67c7, 0x67c8, 0x67c9, 0x67ca,
+              0x67cc, 0x67cf,
+  # Polaris11
+              0x67d0, 0x67df, 0x67e0, 0x67e1, 0x67e3, 0x67e7, 0x67e8, 0x67e9,
+              0x67eb, 0x67ef, 0x67ff,
+  # Polaris12
+              0x6980, 0x6981, 0x6985, 0x6986, 0x6987, 0x6995, 0x6997, 0x699f],
+  # Vega10
+  "gfx900" : [0x6860, 0x6861, 0x6862, 0x6863, 0x6864, 0x6867, 0x6868, 0x686c,
+              0x687f]
+}
+
+def staticVars(**kwargs):
+  def deco(func):
+    for k in kwargs:
+      setattr(func, k, kwargs[k])
+    return func
+  return deco
+
+@staticVars(search_term=re.compile("gfx\d+"))
+def getGCNISA(line, match_from_beginning = False):
+ if match_from_beginning is True:
+   result = getGCNISA.search_term.match(line)
+ else:
+   result = getGCNISA.search_term.search(line)
+
+ if result is not None:
+   return result.group(0)
+ return None
+
+def readFromTargetLstFile():
+  target_list = []
+
+  # locate target.lst which should be placed at the same directory with this
+  # script
+  target_lst_path = os.path.join(CWD, "target.lst")
+  if os.path.isfile(target_lst_path):
+    target_lst_file = open(target_lst_path, 'r')
+    for line in target_lst_file:
+      # for target.lst match from beginning so targets can be disabled by
+      # commenting it out
+      target = getGCNISA(line, match_from_beginning = True)
+      if target is not None:
+        target_list.append(target)
+    
+  return target_list
+
+def readFromROCMINFO():
+  target_list = []
+
+  # locate rocminfo binary which should be placed at the same directory with
+  # this script
+  rocminfo_executable = os.path.join(CWD, "rocminfo")
+
+  try:
+    # run rocminfo
+    rocminfo_output = subprocess.Popen(rocminfo_executable, stdout=subprocess.PIPE).communicate()[0].split('\n')
+  except:
+    rocminfo_output = []
+
+  # search AMDGCN gfx ISA
+  line_search_term = re.compile("\A\s+Name:\s+(gfx\d+)")
+  for line in rocminfo_output:
+    if line_search_term.match(line) is not None:
+      target = getGCNISA(line)
+      if target is not None:
+        target_list.append(target)
+
+  return target_list
+
+def readFromLSPCI():
+  target_list = []
+
+  try:
+    # run lspci
+    lspci_output = subprocess.Popen(["/usr/bin/lspci", "-n", "-d", "1002:"], stdout=subprocess.PIPE).communicate()[0].split('\n')
+  except:
+    lspci_output = []
+
+  target_search_term = re.compile("1002:\w+")
+  for line in lspci_output:
+    search_result = target_search_term.search(line)
+    if search_result is not None:
+      device_id = int(search_result.group(0).split(':')[1], 16)
+      # try lookup from ISA_TO_ID dict
+      for target in ISA_TO_ID.keys():
+        for target_device_id in ISA_TO_ID[target]:
+          if device_id == target_device_id:
+            target_list.append(target)
+            break
+
+  return target_list
+
+def main():
+  """Prints the list of available AMD GCN ISA
+
+  The program collects the list in 3 different ways, in the order of
+  precendence:
+
+  1. target.lst : user-supplied text file. This is used in a container setting
+                  where ROCm stack may usually not available.
+  2. rocminfo : a tool shipped with this script to enumerate GPU agents
+                available on a working ROCm stack.
+  3. lspci : enumerate PCI bus and locate supported devices from a hard-coded
+             lookup table.
+  """
+  target_list = readFromTargetLstFile()
+
+  if len(target_list) == 0:
+    target_list = readFromROCMINFO()
+
+  if len(target_list) == 0:
+    target_list = readFromLSPCI()
+
+  # workaround to cope with existing rocm_agent_enumerator behavior where gfx000
+  # would always be returned
+  print "gfx000"
+  
+  for gfx in target_list:
+    print gfx
+
+if __name__ == "__main__":
+  main()
