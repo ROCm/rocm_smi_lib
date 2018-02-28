@@ -88,7 +88,8 @@ endif()
 # Set Name for Samples Project
 #
 
-set(PROJECT_NAME "sample${ONLY64STR}")
+set(ROCMINFO_EXE "rocminfo")
+set(PROJECT_NAME ${ROCMINFO_EXE})
 project (${PROJECT_NAME})
 
 #
@@ -111,7 +112,6 @@ message("--------Proj Lib Dir: " ${PROJECT_BINARY_DIR}/lib)
 message("--------Proj Exe Dir: " ${PROJECT_BINARY_DIR}/bin)
 message("")
 
-set(ROCMINFO_EXE "rocminfo")
 
 #
 # Set the build type based on user input
@@ -185,11 +185,66 @@ configure_file(rocm_agent_enumerator rocm_agent_enumerator COPYONLY)
 
 
 ###########################
-# SAMPLE SPECIFIC SECTION
-###########################
-
 # RocR Info
+###########################
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} ROCMINFO_SOURCES)
 add_executable(${ROCMINFO_EXE} ${ROCMINFO_SOURCES})
 target_link_libraries(${ROCMINFO_EXE} ${ROCR_LIBS} c stdc++ dl pthread rt)
 
+###########################
+# Install directives
+###########################
+install (
+   FILES ${CMAKE_CURRENT_BINARY_DIR}/${ROCMINFO_EXE}
+   PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+   DESTINATION bin )
+install (
+   FILES ${CMAKE_CURRENT_BINARY_DIR}/rocm_agent_enumerator
+   PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+   DESTINATION bin )
+
+###########################
+# Packaging directives
+###########################
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+
+if (NOT DEFINED CPACK_PACKAGE_VENDOR)
+    set(CPACK_PACKAGE_VENDOR "AMD")
+endif ()
+
+if (NOT DEFINED CPACK_PACKAGE_VERSION_MAJOR)
+    set(CPACK_PACKAGE_VERSION_MAJOR "1")
+endif ()
+
+if (NOT DEFINED CPACK_PACKAGE_VERSION_MINOR)
+    set(CPACK_PACKAGE_VERSION_MINOR "0")
+endif ()
+
+if (NOT DEFINED CPACK_PACKAGE_VERSION_PATCH)
+    set(CPACK_PACKAGE_VERSION_PATCH "0")
+endif ()
+
+if (NOT DEFINED CPACK_PACKAGE_CONTACT)
+    set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
+endif ()
+
+if (NOT DEFINED CPACK_PACKAGE_DESCRIPTION_SUMMARY)
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Radeon Open Compute (ROCm) Runtime rocminfo tool")
+endif ()
+
+###########################
+# Debian package specific variables
+###########################
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${CPACK_DEBIAN_PACKAGE_HOMEPAGE} CACHE STRING "https://github.com/RadeonOpenCompute/ROCm")
+
+###########################
+# RPM package specific variables
+###########################
+if ( DEFINED CPACK_PACKAGING_INSTALL_PREFIX )
+    set ( CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin" )
+endif ( )
+
+###########################
+# Include packaging
+###########################
+include ( CPack )
