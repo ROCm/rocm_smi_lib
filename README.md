@@ -12,7 +12,7 @@ might look like this:
 
 mkdir -p build
 
-cd buildhttp://www.google.com/
+cd build
 
 cmake -DCMAKE_PREFIX_PATH=/opt/rocm ..
 
