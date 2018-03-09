@@ -100,8 +100,8 @@ install (
 ###########################
 # Packaging directives
 ###########################
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "hsa-rocr-dev, python3")
-set(CPACK_RPM_PACKAGE_REQUIRES "hsa-rocr-dev, python3")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "hsa-rocr-dev, python")
+set(CPACK_RPM_PACKAGE_REQUIRES "hsa-rocr-dev, python")
 
 ###########################
 # Debian package specific variables
