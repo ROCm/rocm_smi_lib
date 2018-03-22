@@ -78,7 +78,7 @@ def readFromROCMINFO():
 
   try:
     # run rocminfo
-    rocminfo_output = subprocess.Popen(rocminfo_executable, stdout=subprocess.PIPE).communicate()[0].split('\n')
+    rocminfo_output = subprocess.Popen(rocminfo_executable, stdout=subprocess.PIPE).communicate()[0].decode("utf-8").split('\n')
   except:
     rocminfo_output = []
 
@@ -138,10 +138,10 @@ def main():
 
   # workaround to cope with existing rocm_agent_enumerator behavior where gfx000
   # would always be returned
-  print "gfx000"
+  print("gfx000")
   
   for gfx in target_list:
-    print gfx
+    print(gfx)
 
 if __name__ == "__main__":
   main()
