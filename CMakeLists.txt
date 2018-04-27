@@ -19,7 +19,7 @@ if(NOT ROCR_INC_DIR)
 endif()
 
 find_path(ROCR_LIB_DIR libhsa-runtime64.so PATH_SUFFIXES lib PATHS /opt/rocm)
-if(NOT ROCR_INC_DIR)
+if(NOT ROCR_LIB_DIR)
     message(FATAL_ERROR "Can't find libhsa-runtime64.so.")
 endif()
 
