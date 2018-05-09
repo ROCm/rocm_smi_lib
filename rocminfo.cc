@@ -452,24 +452,22 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
     printLabelStr("Fast F16 Operation:", agent_i->fast_f16 ? "TRUE":"FALSE", 1);
 
     printLabelInt("Wavefront Size:", agent_i->wavefront_size, 1);
-    printLabelInt("Workgroup Max Size:", agent_i->workgroup_max_size, 1);
 
-    printLabel("Workgroup Max Size Per Dimension:", true, 1);
-    std::string dim;
-    for (int i = 0; i < 3; i++) {
-      dim = "Dim[" + std::to_string(i) + "]:";
-      printLabelInt(dim.c_str(),
-              static_cast<uint32_t>(agent_i->workgroup_max_dim[i]), 2);
-    }
-    printLabelInt("Grid Max Size:", agent_i->grid_max_size, 1);
+    printLabelInt("Workgroup Max Size:", agent_i->workgroup_max_size, 1);
+    printLabel("Workgroup Max Size per Dimension:", true, 1);
+    printLabelInt("x", static_cast<uint32_t>(agent_i->workgroup_max_dim[0]), 2);
+    printLabelInt("y", static_cast<uint32_t>(agent_i->workgroup_max_dim[1]), 2);
+    printLabelInt("z", static_cast<uint32_t>(agent_i->workgroup_max_dim[2]), 2);
+
     printLabelInt("Waves Per CU:", agent_i->waves_per_cu, 1);
     printLabelInt("Max Work-item Per CU:",
                             agent_i->wavefront_size*agent_i->waves_per_cu, 1);
 
+    printLabelInt("Grid Max Size:", agent_i->grid_max_size, 1);
     printLabel("Grid Max Size per Dimension:", true, 1);
-    printLabelInt("Dim[0]", agent_i->grid_max_dim.x, 2);
-    printLabelInt("Dim[1]", agent_i->grid_max_dim.y, 2);
-    printLabelInt("Dim[2]", agent_i->grid_max_dim.z, 2);
+    printLabelInt("x", agent_i->grid_max_dim.x, 2);
+    printLabelInt("y", agent_i->grid_max_dim.y, 2);
+    printLabelInt("z", agent_i->grid_max_dim.z, 2);
 
     printLabelInt("Max number Of fbarriers Per Workgroup:",
                                              agent_i->fbarrier_max_size, 1);
@@ -723,22 +721,21 @@ static void DisplayISAInfo(isa_info_t *isa_i, uint32_t indent) {
 
   printLabelStr("Fast f16:", (isa_i->fast_f16 ? "TRUE" : "FALSE"), indent);
 
-  printLabel("Workgroup Max Dimension:", true, indent);
-  std::string dim;
-  for (int i = 0; i < 3; i++) {
-    dim = "Dim[" + std::to_string(i) + "]:";
-    printLabelInt(dim.c_str(),
-         static_cast<uint32_t>(isa_i->workgroup_max_dim[i]), indent+1);
-  }
-
   printLabelInt("Workgroup Max Size:", isa_i->workgroup_max_size, indent);
-
-  printLabel("Grid Max Size per Dimension:", true, indent);
-  printLabelInt("Dim[0]", isa_i->grid_max_dim.x, indent+1);
-  printLabelInt("Dim[1]", isa_i->grid_max_dim.y, indent+1);
-  printLabelInt("Dim[2]", isa_i->grid_max_dim.z, indent+1);
-
+  printLabel("Workgroup Max Size per Dimension:", true, indent);
+  printLabelInt("x", 
+        static_cast<uint32_t>(isa_i->workgroup_max_dim[0]), indent+1);
+  printLabelInt("y", 
+        static_cast<uint32_t>(isa_i->workgroup_max_dim[1]), indent+1);
+  printLabelInt("z", 
+        static_cast<uint32_t>(isa_i->workgroup_max_dim[2]), indent+1);
+  
   printLabelInt("Grid Max Size:", isa_i->grid_max_size, indent);
+  printLabel("Grid Max Size per Dimension:", true, indent);
+  printLabelInt("x", isa_i->grid_max_dim.x, indent+1);
+  printLabelInt("y", isa_i->grid_max_dim.y, indent+1);
+  printLabelInt("z", isa_i->grid_max_dim.z, indent+1);
+
   printLabelInt("FBarrier Max Size:", isa_i->fbarrier_max_size, indent);
 }
 
