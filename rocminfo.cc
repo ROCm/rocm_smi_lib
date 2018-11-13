@@ -45,6 +45,8 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <sstream>
+
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
 
@@ -140,6 +142,43 @@ static const uint32_t kLabelFieldSize = 25;
 static const uint32_t kValueFieldSize = 35;
 static const uint32_t kIndentSize = 2;
 
+enum rocmi_int_format {
+  ROCMI_INT_FORMAT_DEC = 1,
+  ROCMI_INT_FORMAT_HEX = 2,
+};
+
+// Make the most common format the default
+std::string int_to_string(uint32_t i,
+                   uint32_t fmt = ROCMI_INT_FORMAT_DEC|ROCMI_INT_FORMAT_HEX) {
+  std::stringstream sd;
+  std::string ret = "";
+  bool need_parens = false;
+
+  if (fmt & ROCMI_INT_FORMAT_DEC) {
+    if (need_parens) {
+      sd << "(";
+    }
+    sd << i;
+    if (need_parens) {
+      sd << ") ";
+    }
+    need_parens = true;
+  }
+
+  if (fmt & ROCMI_INT_FORMAT_HEX) {
+    if (need_parens) {
+      sd << "(0x";
+    }
+    sd << std::hex << i;
+    if (need_parens) {
+      sd << ") ";
+    }
+    need_parens = true;
+  }
+
+  return sd.str();
+}
+
 static void printLabelInt(char const *l, int d, uint32_t indent_lvl = 0) {
   std::string ind(kIndentSize * indent_lvl, ' ');
 
@@ -149,6 +188,12 @@ static void printLabelStr(char const *l, char const *s,
                                                     uint32_t indent_lvl = 0) {
   std::string ind(kIndentSize * indent_lvl, ' ');
   printf("%s%-*s%-*s\n", ind.c_str(), kLabelFieldSize, l, kValueFieldSize, s);
+}
+static void printLabelStr(char const *l, std::string const &s,
+                                                    uint32_t indent_lvl = 0) {
+  std::string ind(kIndentSize * indent_lvl, ' ');
+  printf("%s%-*s%-*s\n", ind.c_str(), kLabelFieldSize, l, kValueFieldSize,
+                                                                   s.c_str());
 }
 static void printLabel(char const *l, bool newline = false,
                                                     uint32_t indent_lvl = 0) {
@@ -201,7 +246,8 @@ static void DisplaySystemInfo(system_info_t const *sys_info) {
   printLabel("System Timestamp Freq.:");
   printf("%fMHz\n", sys_info->timestamp_frequency / 1e6);
   printLabel("Sig. Max Wait Duration:");
-  printf("%lu (number of timestamp)\n", sys_info->max_wait);
+  printf("%lu (0x%lX) (timestamp count)\n", sys_info->max_wait,
+                                                           sys_info->max_wait);
 
   printLabel("Machine Model:");
   if (HSA_MACHINE_MODEL_SMALL == sys_info->machine_model) {
@@ -392,9 +438,11 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
     printValueStr("Not Supported");
   }
 
-  printLabelInt("Max Queue Number:", agent_i->max_queue, 1);
-  printLabelInt("Queue Min Size:", agent_i->queue_min_size, 1);
-  printLabelInt("Queue Max Size:", agent_i->queue_max_size, 1);
+  printLabelStr("Max Queue Number:",  int_to_string(agent_i->max_queue), 1);
+
+  printLabelStr("Queue Min Size:",  int_to_string(agent_i->queue_min_size), 1);
+
+  printLabelStr("Queue Max Size:",  int_to_string(agent_i->queue_max_size), 1);
 
   if (HSA_QUEUE_TYPE_MULTI == agent_i->queue_type) {
     printLabelStr("Queue Type:", "MULTI", 1);
@@ -424,17 +472,18 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
       tmp_str += ":";
       printLabel(tmp_str.c_str(), false, 2);
 
-      tmp_str = std::to_string(agent_i->cache_size[i]/1024);
+    //  tmp_str = std::to_string(agent_i->cache_size[i]/1024);
+      tmp_str = int_to_string(agent_i->cache_size[i]/1024);
       tmp_str += "KB";
       printValueStr(tmp_str.c_str());
     }
   }
 
-  printLabelInt("Chip ID:", agent_i->chip_id, 1);
-  printLabelInt("Cacheline Size:", agent_i->cacheline_size, 1);
+  printLabelStr("Chip ID:", int_to_string(agent_i->chip_id), 1);
+  printLabelStr("Cacheline Size:", int_to_string(agent_i->cacheline_size), 1);
   printLabelInt("Max Clock Frequency (MHz):", agent_i->max_clock_freq, 1);
-  printLabelInt("BDFID:", agent_i->bdf_id, 1);
-  printLabelInt("Compute Unit:", agent_i->compute_unit, 1);
+  printLabelStr("BDFID:", int_to_string(agent_i->bdf_id), 1);
+  printLabelStr("Compute Unit:", int_to_string(agent_i->compute_unit), 1);
 
   printLabel("Features:", false, 1);
   if (agent_i->agent_feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
@@ -449,25 +498,31 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
   printf("\n");
 
   if (agent_i->agent_feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
-    printLabelStr("Fast F16 Operation:", agent_i->fast_f16 ? "TRUE":"FALSE", 1);
+    printLabelStr("Fast F16 Operation:",
+                                       agent_i->fast_f16 ? "TRUE":"FALSE", 1);
 
-    printLabelInt("Wavefront Size:", agent_i->wavefront_size, 1);
+    printLabelStr("Wavefront Size:",
+                                   int_to_string(agent_i->wavefront_size), 1);
 
-    printLabelInt("Workgroup Max Size:", agent_i->workgroup_max_size, 1);
+    printLabelStr("Workgroup Max Size:",
+        int_to_string(agent_i->workgroup_max_size), 1);
     printLabel("Workgroup Max Size per Dimension:", true, 1);
-    printLabelInt("x", static_cast<uint32_t>(agent_i->workgroup_max_dim[0]), 2);
-    printLabelInt("y", static_cast<uint32_t>(agent_i->workgroup_max_dim[1]), 2);
-    printLabelInt("z", static_cast<uint32_t>(agent_i->workgroup_max_dim[2]), 2);
+    printLabelStr("x",
+      int_to_string(static_cast<uint32_t>(agent_i->workgroup_max_dim[0])), 2);
+    printLabelStr("y",
+      int_to_string(static_cast<uint32_t>(agent_i->workgroup_max_dim[1])), 2);
+    printLabelStr("z",
+      int_to_string(static_cast<uint32_t>(agent_i->workgroup_max_dim[2])), 2);
 
-    printLabelInt("Waves Per CU:", agent_i->waves_per_cu, 1);
-    printLabelInt("Max Work-item Per CU:",
-                            agent_i->wavefront_size*agent_i->waves_per_cu, 1);
+    printLabelStr("Waves Per CU:", int_to_string(agent_i->waves_per_cu), 1);
+    printLabelStr("Max Work-item Per CU:",
+             int_to_string(agent_i->wavefront_size*agent_i->waves_per_cu), 1);
 
-    printLabelInt("Grid Max Size:", agent_i->grid_max_size, 1);
+    printLabelStr("Grid Max Size:", int_to_string(agent_i->grid_max_size), 1);
     printLabel("Grid Max Size per Dimension:", true, 1);
-    printLabelInt("x", agent_i->grid_max_dim.x, 2);
-    printLabelInt("y", agent_i->grid_max_dim.y, 2);
-    printLabelInt("z", agent_i->grid_max_dim.z, 2);
+    printLabelStr("x", int_to_string(agent_i->grid_max_dim.x), 2);
+    printLabelStr("y", int_to_string(agent_i->grid_max_dim.y), 2);
+    printLabelStr("z", int_to_string(agent_i->grid_max_dim.z), 2);
 
     printLabelInt("Max number Of fbarriers Per Workgroup:",
                                              agent_i->fbarrier_max_size, 1);
@@ -574,8 +629,8 @@ static void DumpSegment(pool_info_t *pool_i, uint32_t ind_lvl) {
 static void DisplayPoolInfo(pool_info_t *pool_i, uint32_t indent) {
   DumpSegment(pool_i, indent);
 
-  std::string sz_str = std::to_string(pool_i->pool_size/1024) + "KB";
-  printLabelStr("Size:", sz_str.c_str(), indent);
+  size_t sz = pool_i->pool_size/1024;
+  printLabelStr("Size:", int_to_string(sz) + "KB", indent);
   printLabelStr("Allocatable:", (pool_i->alloc_allowed ? "TRUE" : "FALSE"),
                                                                       indent);
   std::string gr_str = std::to_string(pool_i->alloc_granule/1024)+"KB";
@@ -721,20 +776,21 @@ static void DisplayISAInfo(isa_info_t *isa_i, uint32_t indent) {
 
   printLabelStr("Fast f16:", (isa_i->fast_f16 ? "TRUE" : "FALSE"), indent);
 
-  printLabelInt("Workgroup Max Size:", isa_i->workgroup_max_size, indent);
+  printLabelStr("Workgroup Max Size:",
+                            int_to_string(isa_i->workgroup_max_size), indent);
   printLabel("Workgroup Max Size per Dimension:", true, indent);
-  printLabelInt("x", 
-        static_cast<uint32_t>(isa_i->workgroup_max_dim[0]), indent+1);
-  printLabelInt("y", 
-        static_cast<uint32_t>(isa_i->workgroup_max_dim[1]), indent+1);
-  printLabelInt("z", 
-        static_cast<uint32_t>(isa_i->workgroup_max_dim[2]), indent+1);
-  
-  printLabelInt("Grid Max Size:", isa_i->grid_max_size, indent);
+  printLabelStr("x", int_to_string(
+               static_cast<uint32_t>(isa_i->workgroup_max_dim[0])), indent+1);
+  printLabelStr("y", int_to_string(
+               static_cast<uint32_t>(isa_i->workgroup_max_dim[1])), indent+1);
+  printLabelStr("z", int_to_string(
+               static_cast<uint32_t>(isa_i->workgroup_max_dim[2])), indent+1);
+
+  printLabelStr("Grid Max Size:", int_to_string(isa_i->grid_max_size), indent);
   printLabel("Grid Max Size per Dimension:", true, indent);
-  printLabelInt("x", isa_i->grid_max_dim.x, indent+1);
-  printLabelInt("y", isa_i->grid_max_dim.y, indent+1);
-  printLabelInt("z", isa_i->grid_max_dim.z, indent+1);
+  printLabelStr("x", int_to_string(isa_i->grid_max_dim.x), indent+1);
+  printLabelStr("y", int_to_string(isa_i->grid_max_dim.y), indent+1);
+  printLabelStr("z", int_to_string(isa_i->grid_max_dim.z), indent+1);
 
   printLabelInt("FBarrier Max Size:", isa_i->fbarrier_max_size, indent);
 }
