@@ -73,6 +73,7 @@ typedef struct {
 typedef struct {
   char name[64];
   char vendor_name[64];
+  char device_mkt_name[64];
   hsa_agent_feature_t agent_feature;
   hsa_profile_t agent_profile;
   hsa_default_float_rounding_mode_t float_rounding_mode;
@@ -86,12 +87,19 @@ typedef struct {
   uint32_t chip_id;
   uint32_t cacheline_size;
   uint32_t max_clock_freq;
+  uint32_t internal_node_id;
+  uint32_t max_addr_watch_pts;
+  // HSA_AMD_AGENT_INFO_MEMORY_WIDTH is deprecated, so exclude
+  // uint32_t mem_max_freq; Not supported by get_info
   uint32_t compute_unit;
   uint32_t wavefront_size;
   uint32_t workgroup_max_size;
   uint32_t grid_max_size;
   uint32_t fbarrier_max_size;
-  uint32_t waves_per_cu;
+  uint32_t max_waves_per_cu;
+  uint32_t simds_per_cu;
+  uint32_t shader_engs;
+  uint32_t shader_arrs_per_sh_eng;
   hsa_isa_t agent_isa;
   hsa_dim3_t grid_max_dim;
   uint16_t workgroup_max_dim[3];
@@ -275,6 +283,12 @@ AcquireAgentInfo(hsa_agent_t agent, agent_info_t *agent_i) {
                                                        &agent_i->vendor_name);
   RET_IF_HSA_ERR(err);
 
+  // Get device marketing name
+  err = hsa_agent_get_info(agent,
+                         (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PRODUCT_NAME,
+                                                   &agent_i->device_mkt_name);
+  RET_IF_HSA_ERR(err);
+
   // Get agent feature
   err = hsa_agent_get_info(agent, HSA_AGENT_INFO_FEATURE,
                                                      &agent_i->agent_feature);
@@ -347,9 +361,47 @@ AcquireAgentInfo(hsa_agent_t agent, agent_info_t *agent_i) {
                                                     &agent_i->max_clock_freq);
   RET_IF_HSA_ERR(err);
 
+  // Internal Driver node ID
+  err = hsa_agent_get_info(agent,
+                  (hsa_agent_info_t) HSA_AMD_AGENT_INFO_DRIVER_NODE_ID,
+                                                  &agent_i->internal_node_id);
+  RET_IF_HSA_ERR(err);
+
+  // Max number of watch points on mem. addr. ranges to generate exeception
+  // events
+  err = hsa_agent_get_info(agent,
+              (hsa_agent_info_t) HSA_AMD_AGENT_INFO_MAX_ADDRESS_WATCH_POINTS,
+                                                &agent_i->max_addr_watch_pts);
+  RET_IF_HSA_ERR(err);
+
   // Get Agent BDFID
   err = hsa_agent_get_info(agent,
                 (hsa_agent_info_t)HSA_AMD_AGENT_INFO_BDFID, &agent_i->bdf_id);
+  RET_IF_HSA_ERR(err);
+
+  // Get Max Memory Clock
+  // Not supported by hsa_agent_get_info
+  //  err = hsa_agent_get_info(agent,d
+  //              (hsa_agent_info_t)HSA_AMD_AGENT_INFO_MEMORY_MAX_FREQUENCY,
+  //                                                      &agent_i->mem_max_freq);
+  //  RET_IF_HSA_ERR(err);
+
+  // Get Num SIMDs per CU
+  err = hsa_agent_get_info(agent,
+              (hsa_agent_info_t)HSA_AMD_AGENT_INFO_NUM_SIMDS_PER_CU,
+                                                      &agent_i->simds_per_cu);
+  RET_IF_HSA_ERR(err);
+
+  // Get Num Shader Engines
+  err = hsa_agent_get_info(agent,
+              (hsa_agent_info_t)HSA_AMD_AGENT_INFO_NUM_SHADER_ENGINES,
+                                                      &agent_i->shader_engs);
+  RET_IF_HSA_ERR(err);
+
+  // Get Num Shader Arrays per Shader engine
+  err = hsa_agent_get_info(agent,
+              (hsa_agent_info_t)HSA_AMD_AGENT_INFO_NUM_SHADER_ARRAYS_PER_SE,
+                                            &agent_i->shader_arrs_per_sh_eng);
   RET_IF_HSA_ERR(err);
 
   // Get number of Compute Unit
@@ -397,7 +449,7 @@ AcquireAgentInfo(hsa_agent_t agent, agent_info_t *agent_i) {
 
     err = hsa_agent_get_info(agent,
                     (hsa_agent_info_t)HSA_AMD_AGENT_INFO_MAX_WAVES_PER_CU,
-                                                      &agent_i->waves_per_cu);
+                                                  &agent_i->max_waves_per_cu);
     RET_IF_HSA_ERR(err);
   }
   return err;
@@ -405,6 +457,7 @@ AcquireAgentInfo(hsa_agent_t agent, agent_info_t *agent_i) {
 
 static void DisplayAgentInfo(agent_info_t *agent_i) {
   printLabelStr("Name:", agent_i->name, 1);
+  printLabelStr("Marketing Name:", agent_i->device_mkt_name, 1);
   printLabelStr("Vendor Name:", agent_i->vendor_name, 1);
 
   printLabel("Feature:", false, 1);
@@ -481,9 +534,14 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
 
   printLabelStr("Chip ID:", int_to_string(agent_i->chip_id), 1);
   printLabelStr("Cacheline Size:", int_to_string(agent_i->cacheline_size), 1);
-  printLabelInt("Max Clock Frequency (MHz):", agent_i->max_clock_freq, 1);
-  printLabelStr("BDFID:", int_to_string(agent_i->bdf_id), 1);
-  printLabelStr("Compute Unit:", int_to_string(agent_i->compute_unit), 1);
+  printLabelInt("Max Clock Freq. (MHz):", agent_i->max_clock_freq, 1);
+  printLabelInt("BDFID:", agent_i->bdf_id, 1);
+  printLabelInt("Internal Node ID:", agent_i->internal_node_id, 1);
+  printLabelInt("Compute Unit:", agent_i->compute_unit, 1);
+  printLabelInt("SIMDs per CU:", agent_i->simds_per_cu, 1);
+  printLabelInt("Shader Engines:", agent_i->shader_engs, 1);
+  printLabelInt("Shader Arrs. per Eng.:", agent_i->shader_arrs_per_sh_eng, 1);
+  printLabelInt("WatchPts on Addr. Ranges:", agent_i->max_addr_watch_pts, 1);
 
   printLabel("Features:", false, 1);
   if (agent_i->agent_feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
@@ -514,9 +572,10 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
     printLabelStr("z",
       int_to_string(static_cast<uint32_t>(agent_i->workgroup_max_dim[2])), 2);
 
-    printLabelStr("Waves Per CU:", int_to_string(agent_i->waves_per_cu), 1);
+    printLabelStr("Max Waves Per CU:",
+                                 int_to_string(agent_i->max_waves_per_cu), 1);
     printLabelStr("Max Work-item Per CU:",
-             int_to_string(agent_i->wavefront_size*agent_i->waves_per_cu), 1);
+         int_to_string(agent_i->wavefront_size*agent_i->max_waves_per_cu), 1);
 
     printLabelStr("Grid Max Size:", int_to_string(agent_i->grid_max_size), 1);
     printLabel("Grid Max Size per Dimension:", true, 1);
@@ -524,8 +583,7 @@ static void DisplayAgentInfo(agent_info_t *agent_i) {
     printLabelStr("y", int_to_string(agent_i->grid_max_dim.y), 2);
     printLabelStr("z", int_to_string(agent_i->grid_max_dim.z), 2);
 
-    printLabelInt("Max number Of fbarriers Per Workgroup:",
-                                             agent_i->fbarrier_max_size, 1);
+    printLabelInt("Max fbarriers/Workgrp:", agent_i->fbarrier_max_size, 1);
   }
 }
 
