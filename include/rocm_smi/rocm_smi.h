@@ -595,6 +595,12 @@ rsmi_status_t rsmi_dev_vendor_id_get(uint32_t dv_ind, uint16_t *id);
  *  will write the name of the device (up to @p len characters) to the buffer
  *  @p name.
  *
+ *  If the integer ID associated with the device is not found in one of the
+ *  system files containing device name information (e.g.
+ *  /usr/share/misc/pci.ids), then this function will return the hex device ID
+ *  as a string. Updating the system name files can be accompplished with
+ *  "sudo update-pciids".
+ *
  *  @param[in] dv_ind a device index
  *
  *  @param[inout] name a pointer to a caller provided char buffer to which the
