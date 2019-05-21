@@ -43,6 +43,11 @@
  *
  */
 #include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <grp.h>
+
+#include <stdio.h>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -50,10 +55,25 @@
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
 
+#define RET_IF_HSA_INIT_ERR(err) {                      \
+  if ((err) != HSA_STATUS_SUCCESS) {                    \
+    CheckInitError(err);                                \
+    RET_IF_HSA_ERR(err);                                \
+  }                                                     \
+}
+
 #define RET_IF_HSA_ERR(err) { \
   if ((err) != HSA_STATUS_SUCCESS) { \
-    printf("hsa api call failure at line %d, file: %s. Call returned %d\n", \
-                                                   __LINE__, __FILE__, err); \
+    char err_val[12];                                           \
+    char* err_str = NULL;                                       \
+    if (hsa_status_string(err,                                  \
+            (const char**)&err_str) != HSA_STATUS_SUCCESS) {    \
+      sprintf(&(err_val[0]), "%#x", (uint32_t)err);             \
+      err_str = &(err_val[0]);                                  \
+    }                                                           \
+    printf("hsa api call failure at: %s:%d\n",                  \
+                              __FILE__, __LINE__);              \
+    printf("Call returned %s\n", err_str);                      \
     return (err); \
   } \
 }
@@ -997,6 +1017,44 @@ AcquireAndDisplayAgentInfo(hsa_agent_t agent, void* data) {
   return HSA_STATUS_SUCCESS;
 }
 
+void CheckInitError(hsa_status_t err) {
+
+  printf("ROCm initialization failed\n");
+
+  // Check kernel module for ROCk is loaded
+  FILE *fd = popen("lsmod | grep amdgpu", "r");
+  char buf[16];
+  if (fread (buf, 1, sizeof (buf), fd) <= 0) {
+    printf("ROCk module is NOT loaded, possibly no GPU devices\n");
+    return;
+  }
+
+  // Check if user belongs to group "video"
+  // @note: User who are not members of "video"
+  // group cannot access DRM services
+  int status = -1;
+  bool member = false;
+  char gr_name[] = "video";
+  struct group* grp = NULL;
+  do {
+    grp = getgrent();
+    if (grp == NULL) {
+      break;
+    }
+    status = memcmp(gr_name, grp->gr_name, sizeof(gr_name));
+    if (status == 0) {
+      member = true;
+      break;
+    }
+  } while (grp != NULL);
+  if (member == false) {
+    printf("User is not member of \"video\" group\n");
+    return;
+  }
+
+  return;
+}
+
 // Print out all static information known to HSA about the target system.
 // Throughout this program, the Acquire-type functions make HSA calls to
 // interate through HSA objects and then perform HSA get_info calls to
@@ -1007,7 +1065,7 @@ int main(int argc, char* argv[]) {
   hsa_status_t err;
 
   err = hsa_init();
-  RET_IF_HSA_ERR(err);
+  RET_IF_HSA_INIT_ERR(err);
 
   // Acquire and display system information
   system_info_t sys_info;
