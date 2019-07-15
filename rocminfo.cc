@@ -46,8 +46,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <grp.h>
+#include <unistd.h>
+#include <pwd.h>
 
-#include <stdio.h>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -55,27 +56,31 @@
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
 
-#define RET_IF_HSA_INIT_ERR(err) {                      \
-  if ((err) != HSA_STATUS_SUCCESS) {                    \
-    CheckInitError(err);                                \
-    RET_IF_HSA_ERR(err);                                \
-  }                                                     \
-}
+#define COL_BLU  "\x1B[34m"
+#define COL_KCYN  "\x1B[36m"
+#define COL_GRN  "\x1B[32m"
+#define COL_NRM  "\x1B[0m"
+#define COL_RED  "\x1B[31m"
+#define COL_MAG  "\x1B[35m"
+#define COL_WHT  "\x1B[37m"
+#define COL_YEL  "\x1B[33m"
+#define COL_RESET "\033[0m"
 
 #define RET_IF_HSA_ERR(err) { \
   if ((err) != HSA_STATUS_SUCCESS) { \
-    char err_val[12];                                           \
-    char* err_str = NULL;                                       \
-    if (hsa_status_string(err,                                  \
-            (const char**)&err_str) != HSA_STATUS_SUCCESS) {    \
-      sprintf(&(err_val[0]), "%#x", (uint32_t)err);             \
-      err_str = &(err_val[0]);                                  \
-    }                                                           \
-    printf("hsa api call failure at: %s:%d\n",                  \
-                              __FILE__, __LINE__);              \
-    printf("Call returned %s\n", err_str);                      \
-    return (err); \
-  } \
+    char err_val[12];                                                         \
+    char* err_str = NULL;                                                     \
+    if (hsa_status_string(err,                                                \
+            (const char**)&err_str) != HSA_STATUS_SUCCESS) {                  \
+      snprintf(&(err_val[0]), sizeof(err_val[12]), "%#x", (uint32_t)err);     \
+      err_str = &(err_val[0]);                                                \
+    }                                                                         \
+    printf("%shsa api call failure at: %s:%d\n",                              \
+                      COL_RED, __FILE__, __LINE__);                           \
+    printf("%sCall returned %s\n", COL_RED, err_str);                         \
+    printf("%s", COL_RESET);                                                  \
+    return (err);                                                             \
+  }                                                                           \
 }
 
 // This structure holds system information acquired through hsa info related
@@ -1017,41 +1022,69 @@ AcquireAndDisplayAgentInfo(hsa_agent_t agent, void* data) {
   return HSA_STATUS_SUCCESS;
 }
 
-void CheckInitError(hsa_status_t err) {
-
-  printf("ROCm initialization failed\n");
-
+void CheckInitialState(void) {
   // Check kernel module for ROCk is loaded
   FILE *fd = popen("lsmod | grep amdgpu", "r");
   char buf[16];
   if (fread (buf, 1, sizeof (buf), fd) <= 0) {
-    printf("ROCk module is NOT loaded, possibly no GPU devices\n");
-    return;
+    printf("%sROCk module is NOT loaded, possibly no GPU devices%s\n",
+                                                          COL_RED, COL_RESET);
+  } else {
+    printf("%sROCk module is loaded%s\n", COL_WHT, COL_RESET);
   }
 
   // Check if user belongs to group "video"
   // @note: User who are not members of "video"
   // group cannot access DRM services
-  int status = -1;
+  char u_name[32];
   bool member = false;
-  char gr_name[] = "video";
-  struct group* grp = NULL;
-  do {
-    grp = getgrent();
-    if (grp == NULL) {
-      break;
-    }
-    status = memcmp(gr_name, grp->gr_name, sizeof(gr_name));
-    if (status == 0) {
-      member = true;
-      break;
-    }
-  } while (grp != NULL);
-  if (member == false) {
-    printf("User is not member of \"video\" group\n");
+  struct passwd *pw;
+  int num_groups = 0;
+  gid_t *groups;
+
+  struct group *gr_s = getgrnam("video");  // NOLINT
+  if (gr_s == nullptr) {
+    printf("%sFailed to get group info to check"
+                       " for video group membership%s\n", COL_RED, COL_RESET);
     return;
   }
 
+  if (getlogin_r(u_name, 32)) {
+    printf("%sFailed to get user name to check for"
+                           " video group membership%s\n", COL_RED, COL_RESET);
+    return;
+  }
+
+  pw = getpwnam(u_name); // NOLINT
+  if (pw == NULL) {
+    printf("%sFailed to find pwd entry for user %s%s\n",
+                                                  COL_RED, u_name, COL_RESET);
+    return;
+  }
+
+  (void)getgrouplist(u_name, pw->pw_gid, NULL, &num_groups);
+  groups = new gid_t[num_groups];
+  if (getgrouplist(u_name, pw->pw_gid, groups, &num_groups) == -1) {
+    printf("%sFailed to get user group list%s\n", COL_RED, COL_RESET);
+    delete []groups;
+    return;
+  }
+
+  for (int i = 0; i < num_groups; ++i) {
+    if (gr_s->gr_gid == groups[i]) {
+      printf("%s%s is member of video group%s\n", COL_WHT, u_name, COL_RESET);
+      member = true;
+      break;
+    }
+  }
+  if (member == false) {
+    printf("%s%s is not member of \"video\" group, the default DRM access "
+     "group. Users must be a member of the \"video\" group or another"
+        " DRM access group in order for ROCm applications to run "
+                             "successfully%s.\n", COL_RED, u_name, COL_RESET);
+  }
+
+  delete []groups;
   return;
 }
 
@@ -1064,8 +1097,9 @@ void CheckInitError(hsa_status_t err) {
 int main(int argc, char* argv[]) {
   hsa_status_t err;
 
+  CheckInitialState();
   err = hsa_init();
-  RET_IF_HSA_INIT_ERR(err);
+  RET_IF_HSA_ERR(err)
 
   // Acquire and display system information
   system_info_t sys_info;
