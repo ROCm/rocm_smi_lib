@@ -50,11 +50,13 @@
 #include <utility>
 #include <cstdint>
 #include <vector>
+#include <unordered_set>
 
 #include "rocm_smi/rocm_smi_monitor.h"
 #include "rocm_smi/rocm_smi_power_mon.h"
 #include "rocm_smi/rocm_smi_common.h"
 #include "rocm_smi/rocm_smi.h"
+#include "rocm_smi/rocm_smi_counters.h"
 extern "C" {
 #include "shared_mutex.h"   // NOLINT
 };
@@ -91,6 +93,31 @@ enum DevInfoTypes {
   kDevMemUsedVisVRAM,
   kDevMemUsedVRAM,
   kDevPCIEReplayCount,
+  kDevUniqueId,
+  kDevDFCountersAvailable,
+  kDevMemBusyPercent,
+  kDevXGMIError,
+  kDevFwVersionAsd,
+  kDevFwVersionCe,
+  kDevFwVersionDmcu,
+  kDevFwVersionMc,
+  kDevFwVersionMe,
+  kDevFwVersionMec,
+  kDevFwVersionMec2,
+  kDevFwVersionPfp,
+  kDevFwVersionRlc,
+  kDevFwVersionRlcSrlc,
+  kDevFwVersionRlcSrlg,
+  kDevFwVersionRlcSrls,
+  kDevFwVersionSdma,
+  kDevFwVersionSdma2,
+  kDevFwVersionSmc,
+  kDevFwVersionSos,
+  kDevFwVersionTaRas,
+  kDevFwVersionTaXgmi,
+  kDevFwVersionUvd,
+  kDevFwVersionVce,
+  kDevFwVersionVcn,
 };
 
 class Device {
@@ -112,11 +139,15 @@ class Device {
     int writeDevInfo(DevInfoTypes type, std::string val);
     uint32_t index(void) const {return index_;}
     void set_index(uint32_t index) {index_ = index;}
+    uint32_t drm_render_minor(void) const {return drm_render_minor_;}
+    void set_drm_render_minor(uint32_t minor) {drm_render_minor_ = minor;}
     static rsmi_dev_perf_level perfLvlStrToEnum(std::string s);
     uint64_t bdfid(void) const {return bdfid_;}
     void set_bdfid(uint64_t val) {bdfid_ = val;}
     uint64_t get_bdfid(void) const {return bdfid_;}
     pthread_mutex_t *mutex(void) {return mutex_.ptr;}
+    evt::dev_evt_grp_set_t* supported_event_groups(void) {
+                                             return &supported_event_groups_;}
 
  private:
     std::shared_ptr<Monitor> monitor_;
@@ -124,6 +155,7 @@ class Device {
     std::string path_;
     shared_mutex_t mutex_;
     uint32_t index_;
+    uint32_t drm_render_minor_;
     const RocmSMI_env_vars *env_;
     template <typename T> int openSysfsFileStream(DevInfoTypes type, T *fs,
                                                    const char *str = nullptr);
@@ -133,6 +165,8 @@ class Device {
                                             std::vector<std::string> *retVec);
     int writeDevInfoStr(DevInfoTypes type, std::string valStr);
     uint64_t bdfid_;
+    std::unordered_set<rsmi_event_group_t,
+                       evt::RSMIEventGrpHashFunction> supported_event_groups_;
 };
 
 }  // namespace smi

@@ -5,7 +5,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2018, Advanced Micro Devices, Inc.
+ * Copyright (c) 2019, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -43,30 +43,37 @@
  *
  */
 
-#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-#define INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
+#include <map>
 
-#include <exception>
-#include <string>
+#include "rocm_smi/rocm_smi.h"
+#include "rocm_smi_test/test_utils.h"
 
-namespace amd {
-namespace smi {
-
-/// @brief Exception type which carries an error code to return to the user.
-class rsmi_exception : public std::exception {
- public:
-  rsmi_exception(rsmi_status_t error, const std::string description) :
-                                            err_(error), desc_(description) {}
-  rsmi_status_t error_code() const noexcept { return err_; }
-  const char* what() const noexcept override { return desc_.c_str(); }
-
- private:
-  rsmi_status_t err_;
-  std::string desc_;
+static const std::map<rsmi_fw_block_t, const char *> kDevFWNameMap = {
+    {RSMI_FW_BLOCK_ASD, "asd"},
+    {RSMI_FW_BLOCK_CE, "ce"},
+    {RSMI_FW_BLOCK_DMCU, "dmcu"},
+    {RSMI_FW_BLOCK_MC, "mc"},
+    {RSMI_FW_BLOCK_ME, "me"},
+    {RSMI_FW_BLOCK_MEC, "mec"},
+    {RSMI_FW_BLOCK_MEC2, "mec2"},
+    {RSMI_FW_BLOCK_PFP, "pfp"},
+    {RSMI_FW_BLOCK_RLC, "rlc"},
+    {RSMI_FW_BLOCK_RLC_SRLC, "rlc_srlc"},
+    {RSMI_FW_BLOCK_RLC_SRLG, "rlc_srlg"},
+    {RSMI_FW_BLOCK_RLC_SRLS, "rlc_srls"},
+    {RSMI_FW_BLOCK_SDMA, "sdma"},
+    {RSMI_FW_BLOCK_SDMA2, "sdma2"},
+    {RSMI_FW_BLOCK_SMC, "smc"},
+    {RSMI_FW_BLOCK_SOS, "sos"},
+    {RSMI_FW_BLOCK_TA_RAS, "ta_ras"},
+    {RSMI_FW_BLOCK_TA_XGMI, "ta_xgmi"},
+    {RSMI_FW_BLOCK_UVD, "uvd"},
+    {RSMI_FW_BLOCK_VCE, "vce"},
+    {RSMI_FW_BLOCK_VCN, "vcn"},
 };
 
-}  // namespace smi
-}  // namespace amd
 
-#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-
+const char *
+NameFromFWEnum(rsmi_fw_block_t blk) {
+  return kDevFWNameMap.at(blk);
+}

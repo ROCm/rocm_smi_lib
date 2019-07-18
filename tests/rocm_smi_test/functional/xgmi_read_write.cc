@@ -1,5 +1,7 @@
 /*
  * =============================================================================
+ *   ROC Runtime Conformance Release License
+ * =============================================================================
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
@@ -45,107 +47,77 @@
 #include <stddef.h>
 
 #include <iostream>
-#include <string>
-#include <map>
 
 #include "gtest/gtest.h"
 #include "rocm_smi/rocm_smi.h"
-#include "rocm_smi_test/functional/mem_util_read.h"
+#include "rocm_smi_test/functional/xgmi_read_write.h"
 #include "rocm_smi_test/test_common.h"
 
-TestMemUtilRead::TestMemUtilRead() : TestBase() {
-  set_title("Memory Utilization Read Test");
-  set_description("The Memory Utilization Read tests verifies that "
-           "memory busy percent, size and amount used can be read properly.");
+TestXGMIReadWrite::TestXGMIReadWrite() : TestBase() {
+  set_title("RSMI XGMI Read/Write Test");
+  set_description("This test verifies that XGMI error counts can be read"
+                               " properly, and that the count can be reset.");
 }
 
-TestMemUtilRead::~TestMemUtilRead(void) {
+TestXGMIReadWrite::~TestXGMIReadWrite(void) {
 }
 
-void TestMemUtilRead::SetUp(void) {
+void TestXGMIReadWrite::SetUp(void) {
   TestBase::SetUp();
 
   return;
 }
 
-void TestMemUtilRead::DisplayTestInfo(void) {
+void TestXGMIReadWrite::DisplayTestInfo(void) {
   TestBase::DisplayTestInfo();
 }
 
-void TestMemUtilRead::DisplayResults(void) const {
+void TestXGMIReadWrite::DisplayResults(void) const {
   TestBase::DisplayResults();
   return;
 }
 
-void TestMemUtilRead::Close() {
+void TestXGMIReadWrite::Close() {
   // This will close handles opened within rsmitst utility calls and call
   // rsmi_shut_down(), so it should be done after other hsa cleanup
   TestBase::Close();
 }
 
-static const std::map<rsmi_memory_type_t, const char *>
-   kDevMemoryTypeNameMap = {
-    {RSMI_MEM_TYPE_VRAM, "VRAM memory"},
-    {RSMI_MEM_TYPE_VIS_VRAM, "Visible VRAM memory"},
-    {RSMI_MEM_TYPE_GTT, "GTT memory"},
-};
 
-void TestMemUtilRead::Run(void) {
+void TestXGMIReadWrite::Run(void) {
   rsmi_status_t err;
-  uint64_t total;
-  uint64_t usage;
+  rsmi_xgmi_status_t err_stat;
 
   TestBase::Run();
 
-  auto err_chk = [&](const char *str) {
+  for (uint32_t dv_ind = 0; dv_ind < num_monitor_devs(); ++dv_ind) {
+    PrintDeviceHeader(dv_ind);
+
+    err = rsmi_dev_xgmi_error_status(dv_ind, &err_stat);
+
     if (err != RSMI_STATUS_SUCCESS) {
-      if (err == RSMI_STATUS_FILE_ERROR) {
+      if (err == RSMI_STATUS_NOT_SUPPORTED) {
         IF_VERB(STANDARD) {
-          std::cout << "\t** " << str << ": Not supported on this machine"
-                                                                << std::endl;
+          std::cout << "\t**XGMI Error Status: Not supported on this machine"
+                                                                 << std::endl;
+          return;
         }
       } else {
         CHK_ERR_ASRT(err)
       }
-    }
-  };
-
-  for (uint32_t i = 0; i < num_monitor_devs(); ++i) {
-    PrintDeviceHeader(i);
-
-#if 0
-    err = rsmi_dev_memory_busy_percent_get(i, &mem_busy_percent);
-    err_chk("rsmi_dev_memory_busy_percent_get()");
-    if (err != RSMI_STATUS_SUCCESS) {
-      return;
-    }
-    IF_VERB(STANDARD) {
-      std::cout << "\t**" << "GPU Memory Busy %: " << mem_busy_percent <<
-                                                                    std::endl;
-    }
-#endif
-    for (uint32_t mem_type = RSMI_MEM_TYPE_FIRST;
-                                 mem_type <= RSMI_MEM_TYPE_LAST; ++mem_type) {
-      err = rsmi_dev_memory_total_get(i,
-                           static_cast<rsmi_memory_type_t>(mem_type), &total);
-      err_chk("rsmi_dev_memory_total_get()");
-      if (err != RSMI_STATUS_SUCCESS) {
-        return;
-      }
-
-      err = rsmi_dev_memory_usage_get(i,
-                           static_cast<rsmi_memory_type_t>(mem_type), &usage);
-      err_chk("rsmi_dev_memory_usage_get()");
-      if (err != RSMI_STATUS_SUCCESS) {
-        return;
-      }
-
+    } else {
       IF_VERB(STANDARD) {
-        std::cout << "\t**" <<
-         kDevMemoryTypeNameMap.at(static_cast<rsmi_memory_type_t>(mem_type)) <<
-          " Calculated Utilization: " << (static_cast<float>(usage)*100)/total
-                          << "% ("<< usage << "/" << total << ")" << std::endl;
+        std::cout << "\t**XGMI Error Status: " <<
+                                 static_cast<uint32_t>(err_stat) << std::endl;
       }
+    }
+
+    // TODO(cfree) We need to find a way to generate xgmi errors so this
+    // test won't be meaningless
+    err = rsmi_dev_xgmi_error_reset(dv_ind);
+    CHK_ERR_ASRT(err)
+    IF_VERB(STANDARD) {
+      std::cout << "\t**Successfully reset XGMI Error Status: " << std::endl;
     }
   }
 }

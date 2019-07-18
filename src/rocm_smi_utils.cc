@@ -42,6 +42,7 @@
  */
 #include <assert.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <fstream>
 #include <string>
@@ -52,6 +53,52 @@
 
 namespace amd {
 namespace smi {
+
+// Return 0 if same file, 1 if not, and -1 for error
+int SameFile(const std::string fileA, const std::string fileB) {
+  struct stat aStat;
+  struct stat bStat;
+  int ret;
+
+  ret = stat(fileA.c_str(), &aStat);
+  if (ret) {
+      return -1;
+  }
+
+  ret = stat(fileB.c_str(), &bStat);
+  if (ret) {
+      return -1;
+  }
+
+  if (aStat.st_dev != bStat.st_dev) {
+      return 1;
+  }
+
+  if (aStat.st_ino != bStat.st_ino) {
+      return 1;
+  }
+
+  return 0;
+}
+
+bool FileExists(char const *filename) {
+  struct stat buf;
+  return (stat(filename, &buf) == 0);
+}
+
+int isRegularFile(std::string fname, bool *is_reg) {
+  struct stat file_stat;
+  int ret;
+
+  assert(is_reg != nullptr);
+
+  ret = stat(fname.c_str(), &file_stat);
+  if (ret) {
+    return errno;
+  }
+  *is_reg = S_ISREG(file_stat.st_mode);
+  return 0;
+}
 
 int WriteSysfsStr(std::string path, std::string val) {
   std::ofstream fs;

@@ -1,11 +1,9 @@
 /*
  * =============================================================================
- *   ROC Runtime Conformance Release License
- * =============================================================================
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2018, Advanced Micro Devices, Inc.
+ * Copyright (c) 2019, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -42,31 +40,21 @@
  * DEALINGS WITH THE SOFTWARE.
  *
  */
+#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_
+#define INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_
 
-#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-#define INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-
-#include <exception>
-#include <string>
+#include "rocm_smi/rocm_smi.h"
 
 namespace amd {
 namespace smi {
 
-/// @brief Exception type which carries an error code to return to the user.
-class rsmi_exception : public std::exception {
- public:
-  rsmi_exception(rsmi_status_t error, const std::string description) :
-                                            err_(error), desc_(description) {}
-  rsmi_status_t error_code() const noexcept { return err_; }
-  const char* what() const noexcept override { return desc_.c_str(); }
-
- private:
-  rsmi_status_t err_;
-  std::string desc_;
-};
+int
+GetProcessInfo(rsmi_process_info_t *procs, uint32_t num_allocated,
+                                                   uint32_t *num_procs_found);
+int
+GetProcessInfoForPID(uint32_t pid, rsmi_process_info_t *proc);
 
 }  // namespace smi
 }  // namespace amd
 
-#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-
+#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_

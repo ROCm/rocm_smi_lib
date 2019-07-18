@@ -5,7 +5,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2018, Advanced Micro Devices, Inc.
+ * Copyright (c) 2019, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -42,31 +42,32 @@
  * DEALINGS WITH THE SOFTWARE.
  *
  */
+#ifndef TESTS_ROCM_SMI_TEST_FUNCTIONAL_XGMI_READ_WRITE_H_
+#define TESTS_ROCM_SMI_TEST_FUNCTIONAL_XGMI_READ_WRITE_H_
 
-#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-#define INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
+#include "rocm_smi_test/test_base.h"
 
-#include <exception>
-#include <string>
-
-namespace amd {
-namespace smi {
-
-/// @brief Exception type which carries an error code to return to the user.
-class rsmi_exception : public std::exception {
+class TestXGMIReadWrite : public TestBase {
  public:
-  rsmi_exception(rsmi_status_t error, const std::string description) :
-                                            err_(error), desc_(description) {}
-  rsmi_status_t error_code() const noexcept { return err_; }
-  const char* what() const noexcept override { return desc_.c_str(); }
+    TestXGMIReadWrite();
 
- private:
-  rsmi_status_t err_;
-  std::string desc_;
+  // @Brief: Destructor for test case of TestXGMIReadWrite
+  virtual ~TestXGMIReadWrite();
+
+  // @Brief: Setup the environment for measurement
+  virtual void SetUp();
+
+  // @Brief: Core measurement execution
+  virtual void Run();
+
+  // @Brief: Clean up and retrive the resource
+  virtual void Close();
+
+  // @Brief: Display  results
+  virtual void DisplayResults() const;
+
+  // @Brief: Display information about what this test does
+  virtual void DisplayTestInfo(void);
 };
 
-}  // namespace smi
-}  // namespace amd
-
-#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-
+#endif  // TESTS_ROCM_SMI_TEST_FUNCTIONAL_XGMI_READ_WRITE_H_

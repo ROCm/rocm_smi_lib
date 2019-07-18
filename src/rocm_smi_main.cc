@@ -39,7 +39,6 @@
  * DEALINGS WITH THE SOFTWARE.
  *
  */
-#include <sys/stat.h>
 #include <dirent.h>
 #include <assert.h>
 #include <string.h>
@@ -58,8 +57,10 @@
 #include <cerrno>
 
 #include "rocm_smi/rocm_smi.h"
+#include "rocm_smi/rocm_smi_device.h"
 #include "rocm_smi/rocm_smi_main.h"
 #include "rocm_smi/rocm_smi_exception.h"
+#include "rocm_smi/rocm_smi_utils.h"
 
 static const char *kPathDRMRoot = "/sys/class/drm";
 static const char *kPathHWMonRoot = "/sys/class/hwmon";
@@ -72,10 +73,6 @@ static const char *kAMDMonitorTypes[] = {"radeon", "amdgpu", ""};
 namespace amd {
 namespace smi {
 
-static bool FileExists(char const *filename) {
-  struct stat buf;
-  return (stat(filename, &buf) == 0);
-}
 
 static uint32_t GetDeviceIndex(const std::string s) {
   std::string t = s;
@@ -85,31 +82,37 @@ static uint32_t GetDeviceIndex(const std::string s) {
   return stoi(t);
 }
 
-// Return 0 if same file, 1 if not, and -1 for error
-static int SameFile(const std::string fileA, const std::string fileB) {
-  struct stat aStat;
-  struct stat bStat;
-  int ret;
+// Find the drm minor from from sysfs path "/sys/class/drm/cardX/device/drm".
+// From the directory renderDN in that sysfs path, the drm minor can be
+// computed for cardX.
+// On success, return drm_minor which is >= 128 otherwise return 0
+static uint32_t  GetDrmRenderMinor(const std::string s) {
+  std::string drm_path = s;
+  int drm_minor = 0;
+  const std::string render_file_prefix = "renderD";
+  const uint32_t prefix_size = render_file_prefix.size();
+  drm_path += "/device/drm";
 
-  ret = stat(fileA.c_str(), &aStat);
-  if (ret) {
-      return -1;
+  auto drm_dir = opendir(drm_path.c_str());
+  if (drm_dir == nullptr)
+    return 0;
+
+  auto dentry = readdir(drm_dir);
+
+  while (dentry != nullptr) {
+    std::string render_file = dentry->d_name;
+    if (!render_file.compare(0, prefix_size, render_file_prefix)) {
+      drm_minor = stoi(render_file.substr(prefix_size));
+      if (drm_minor)
+        break;
+    }
+    dentry = readdir(drm_dir);
   }
 
-  ret = stat(fileB.c_str(), &bStat);
-  if (ret) {
-      return -1;
-  }
+  if (closedir(drm_dir))
+    return 0;
 
-  if (aStat.st_dev != bStat.st_dev) {
-      return 1;
-  }
-
-  if (aStat.st_ino != bStat.st_ino) {
-      return 1;
-  }
-
-  return 0;
+  return drm_minor;
 }
 
 static int SameDevice(const std::string fileA, const std::string fileB) {
@@ -330,8 +333,10 @@ RocmSMI::AddToDeviceList(std::string dev_name) {
 
   std::string d_name = dev_name;
   uint32_t d_index = GetDeviceIndex(d_name);
+  dev->set_drm_render_minor(GetDrmRenderMinor(dev_path));
   dev->set_index(d_index);
 
+  GetSupportedEventGroups(d_index, dev->supported_event_groups());
   devices_.push_back(dev);
 
   return;

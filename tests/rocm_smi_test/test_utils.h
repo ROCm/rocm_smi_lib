@@ -5,7 +5,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2018, Advanced Micro Devices, Inc.
+ * Copyright (c) 2019, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -43,30 +43,12 @@
  *
  */
 
-#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-#define INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
+#ifndef TESTS_ROCM_SMI_TEST_TEST_UTILS_H_
+#define TESTS_ROCM_SMI_TEST_TEST_UTILS_H_
 
-#include <exception>
-#include <string>
+#include "rocm_smi/rocm_smi.h"
 
-namespace amd {
-namespace smi {
+const char *
+NameFromFWEnum(rsmi_fw_block_t blk);
 
-/// @brief Exception type which carries an error code to return to the user.
-class rsmi_exception : public std::exception {
- public:
-  rsmi_exception(rsmi_status_t error, const std::string description) :
-                                            err_(error), desc_(description) {}
-  rsmi_status_t error_code() const noexcept { return err_; }
-  const char* what() const noexcept override { return desc_.c_str(); }
-
- private:
-  rsmi_status_t err_;
-  std::string desc_;
-};
-
-}  // namespace smi
-}  // namespace amd
-
-#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_EXCEPTION_H_
-
+#endif  // TESTS_ROCM_SMI_TEST_TEST_UTILS_H_
