@@ -43,9 +43,10 @@ endif()
 #
 
 # Required Defines first:
-
-set(ROCR_INC_DIR ${ROCM_DIR}/include)
-set(ROCR_LIB_DIR ${ROCM_DIR}/lib)
+set(ROCRTST_BLD_BITS CACHE "64" STRING "Either 32 or 64")
+set(ROCM_DIR CACHE PATH "Root for RocM install")
+set(ROCR_INC_DIR ${ROCM_DIR}/include CACHE PATH "Path for RocM includes")
+set(ROCR_LIB_DIR ${ROCM_DIR}/lib CACHE PATH "Path for RocM libraries")
 #
 # Determine ROCR Header files are present
 #
