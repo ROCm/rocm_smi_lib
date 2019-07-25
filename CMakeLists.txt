@@ -50,7 +50,7 @@ set(ROCR_LIB_DIR ${ROCM_DIR}/lib)
 # Determine ROCR Header files are present
 #
 if(NOT EXISTS ${ROCR_INC_DIR}/hsa/hsa.h)
-  message("ERROR: ${ROCR_INC_DIR}/hsa/hsa.h does not exist. Check value of ROCM_DIR define")
+  message(FATAL_ERROR, "ERROR: ${ROCR_INC_DIR}/hsa/hsa.h does not exist. Check value of ROCM_DIR define")
   return()
 endif()
 
@@ -66,12 +66,12 @@ endif()
 #
 if (${IS64BIT} EQUAL 0)
   if(NOT EXISTS ${ROCR_LIB_DIR}/libhsa-runtime.so)
-    message("ERROR: ${ROCR_LIB_DIR}/libhsa-runtime.so doesn't exist. Check value of ROCM_DIR define")
+    message(FATAL_ERROR, "ERROR: ${ROCR_LIB_DIR}/libhsa-runtime.so doesn't exist. Check value of ROCM_DIR define")
     return()
   endif()
 else()
   if(NOT EXISTS ${ROCR_LIB_DIR}/libhsa-runtime64.so)
-    message("ERROR: Define ROCR_LIB_DIR pointing to ROCR libraries is not set")
+    message(FATAL_ERROR, "ERROR: Define ROCR_LIB_DIR pointing to ROCR libraries is not set")
     return()
   endif()
 endif()
