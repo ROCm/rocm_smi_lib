@@ -45,96 +45,113 @@
 #include <stddef.h>
 
 #include <iostream>
+#include <string>
 
 #include "gtest/gtest.h"
 #include "rocm_smi/rocm_smi.h"
-#include "rocm_smi_test/functional/err_cnt_read.h"
+#include "rocm_smi_test/functional/mem_page_info_read.h"
 #include "rocm_smi_test/test_common.h"
 
-TestErrCntRead::TestErrCntRead() : TestBase() {
-  set_title("RSMI Error Count Read Test");
-  set_description("The Error Count Read tests verifies that error counts"
-                                                 " can be read properly.");
+TestMemPageInfoRead::TestMemPageInfoRead() : TestBase() {
+  set_title("RSMI Memory Page Info Test");
+  set_description("The Memory Page Info. test verifies that we can read "
+      "memory page information, and then displays the information read");
 }
 
-TestErrCntRead::~TestErrCntRead(void) {
+TestMemPageInfoRead::~TestMemPageInfoRead(void) {
 }
 
-void TestErrCntRead::SetUp(void) {
+void TestMemPageInfoRead::SetUp(void) {
   TestBase::SetUp();
 
   return;
 }
 
-void TestErrCntRead::DisplayTestInfo(void) {
+void TestMemPageInfoRead::DisplayTestInfo(void) {
   TestBase::DisplayTestInfo();
 }
 
-void TestErrCntRead::DisplayResults(void) const {
+void TestMemPageInfoRead::DisplayResults(void) const {
   TestBase::DisplayResults();
   return;
 }
 
-void TestErrCntRead::Close() {
+void TestMemPageInfoRead::Close() {
   // This will close handles opened within rsmitst utility calls and call
   // rsmi_shut_down(), so it should be done after other hsa cleanup
   TestBase::Close();
 }
 
-
-void TestErrCntRead::Run(void) {
+void TestMemPageInfoRead::Run(void) {
   rsmi_status_t err;
-  rsmi_error_count_t ec;
-  uint64_t enabled_mask;
-  rsmi_ras_err_state_t err_state;
+  rsmi_retired_page_record_t *records;
+  uint32_t num_pages;
 
   TestBase::Run();
 
   for (uint32_t i = 0; i < num_monitor_devs(); ++i) {
     PrintDeviceHeader(i);
 
-    err = rsmi_dev_ecc_enabled_get(i, &enabled_mask);
+    err = rsmi_dev_memory_reserved_pages_get(i, &num_pages, nullptr);
+
     if (err == RSMI_STATUS_NOT_SUPPORTED) {
       std::cout <<
-          "\t**Error Count Enabled Mask get is not supported on this machine"
+          "\t**Memory page information is not supported for this device"
                                                                  << std::endl;
       continue;
     } else {
       CHK_ERR_ASRT(err)
       IF_VERB(STANDARD) {
-        std::cout << "Block Error Mask: 0x" << std::hex << enabled_mask <<
-                                                                      std::endl;
+        std::cout << "\tNumber of memory page records: " << num_pages <<
+                                                                    std::endl;
       }
     }
-    for (uint32_t b = RSMI_GPU_BLOCK_FIRST;
-                                          b <= RSMI_GPU_BLOCK_LAST; b = b*2) {
-      err = rsmi_dev_ecc_status_get(i, static_cast<rsmi_gpu_block_t>(b),
-                                                                  &err_state);
-      CHK_ERR_ASRT(err)
-      IF_VERB(STANDARD) {
-        std::cout << "\t**Error Count status for " <<
-          GetBlockNameStr(static_cast<rsmi_gpu_block_t>(b)) <<
-                 " block: " << GetErrStateNameStr(err_state) << std::endl;
-      }
 
-      err = rsmi_dev_ecc_count_get(i, static_cast<rsmi_gpu_block_t>(b), &ec);
+    if (num_pages > 0) {
+      records = new rsmi_retired_page_record_t[num_pages];
 
+      assert(records != nullptr);
+
+      err = rsmi_dev_memory_reserved_pages_get(i, &num_pages, records);
       if (err == RSMI_STATUS_NOT_SUPPORTED) {
-        std::cout << "\t**Error Count for " <<
-                      GetBlockNameStr(static_cast<rsmi_gpu_block_t>(b)) <<
-                               ": Not supported for this device" << std::endl;
+        std::cout << "\t**Getting Memory Page Retirement Status not "
+                                     "supported for this device" << std::endl;
+        continue;
       } else {
           CHK_ERR_ASRT(err)
-          IF_VERB(STANDARD) {
-            std::cout << "\t**Error counts for " <<
-               GetBlockNameStr(static_cast<rsmi_gpu_block_t>(b)) << " block: "
-                                                                 << std::endl;
-            std::cout << "\t\tCorrectable errors: " << ec.correctable_err
-                                                                 << std::endl;
-            std::cout << "\t\tUncorrectable errors: " << ec.uncorrectable_err
-                                                                 << std::endl;
-          }
       }
+
+      IF_VERB(STANDARD) {
+        std::cout.setf(std::ios::hex, std::ios::basefield);
+        std::string page_state;
+
+        for (uint32_t p = 0; p < num_pages; ++p) {
+          std::cout << "\t\tAddress: 0x" << records[p].page_address;
+          std::cout << "  Size: " << records[p].page_size;
+
+          switch (records[p].status) {
+            case RSMI_MEM_PAGE_STATUS_RESERVED:
+              page_state = "Retired";
+              break;
+
+            case RSMI_MEM_PAGE_STATUS_PENDING:
+              page_state = "Pending";
+              break;
+
+            case RSMI_MEM_PAGE_STATUS_UNRESERVABLE:
+              page_state = "Unreservable";
+              break;
+
+            default:
+              ASSERT_EQ(0, 1) << "Unexpected memory page status";
+          }
+          std::cout << "  Status: " << page_state << std::endl;
+        }
+        std::cout.setf(std::ios::dec, std::ios::basefield);
+      }
+      delete []records;
+    } else {
+      continue;
     }
   }
 }

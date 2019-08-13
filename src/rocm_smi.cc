@@ -471,20 +471,19 @@ rsmi_num_monitor_devices(uint32_t *num_devices) {
 }
 
 rsmi_status_t rsmi_dev_ecc_enabled_get(uint32_t dv_ind,
-                                                    uint64_t *enabled_mask) {
+                                                    uint64_t *enabled_blks) {
   TRY
-  rsmi_status_t ret;
-
-  if (enabled_mask == nullptr) {
+  if (enabled_blks == nullptr) {
     return RSMI_STATUS_INVALID_ARGS;
   }
+  rsmi_status_t ret;
+  std::string feature_line;
+  std::string tmp_str;
+
 
   DEVICE_MUTEX
 
-  std::vector<std::string> val_vec;
-
-  ret = get_dev_value_vec(amd::smi::kDevErrCntFeatures, dv_ind, &val_vec);
-
+  ret = get_dev_value_line(amd::smi::kDevErrCntFeatures, dv_ind, &feature_line);
   if (ret == RSMI_STATUS_FILE_ERROR) {
     return RSMI_STATUS_NOT_SUPPORTED;
   }
@@ -492,38 +491,21 @@ rsmi_status_t rsmi_dev_ecc_enabled_get(uint32_t dv_ind,
     return ret;
   }
 
-  std::string junk;
-  std::istringstream fs1(val_vec[0]);
-  std::string mask_str;
+  std::istringstream fs1(feature_line);
 
-  fs1 >> junk;
-  assert(junk == "feature");
-  fs1 >> junk;
-  assert(junk == "mask:");
-  fs1 >> mask_str;
+  fs1 >> tmp_str;  // ignore
+  assert(tmp_str == "feature");
+  fs1 >> tmp_str;  // ignore
+  assert(tmp_str == "mask:");
+  fs1 >> tmp_str;
 
   errno = 0;
-  *enabled_mask = strtoul(mask_str.c_str(), nullptr, 16);
+  *enabled_blks = strtoul(tmp_str.c_str(), nullptr, 16);
   assert(errno == 0);
 
   return errno_to_rsmi_status(errno);
-
   CATCH
 }
-
-
-static const char *kRSMIGpuBlkUMCFName = "umc";
-static const char *kRSMIGpuBlkSDMAFName = "sdma";
-static const char *kRSMIGpuBlkGFXFName = "gfx";
-
-static const std::map<rsmi_gpu_block_t, const char *> kRocmSMIBlockMap = {
-  {RSMI_GPU_BLOCK_UMC,  kRSMIGpuBlkUMCFName},
-  {RSMI_GPU_BLOCK_SDMA, kRSMIGpuBlkSDMAFName},
-  {RSMI_GPU_BLOCK_GFX,  kRSMIGpuBlkGFXFName},
-};
-static_assert(RSMI_GPU_BLOCK_LAST == RSMI_GPU_BLOCK_GFX,
-                 "rsmi_gpu_block_t and/or above name map need to be updated"
-                                                     " and then this assert");
 
 static const std::map<std::string, rsmi_ras_err_state_t> kRocmSMIStateMap = {
     {"none", RSMI_RAS_ERR_STATE_NONE},
@@ -532,8 +514,10 @@ static const std::map<std::string, rsmi_ras_err_state_t> kRocmSMIStateMap = {
     {"single_correctable", RSMI_RAS_ERR_STATE_SING_C},
     {"multi_uncorrectable", RSMI_RAS_ERR_STATE_MULT_UC},
     {"poison", RSMI_RAS_ERR_STATE_POISON},
+    {"off", RSMI_RAS_ERR_STATE_DISABLED},
+    {"on", RSMI_RAS_ERR_STATE_ENABLED},
 };
-static_assert(RSMI_RAS_ERR_STATE_LAST == RSMI_RAS_ERR_STATE_POISON,
+static_assert(RSMI_RAS_ERR_STATE_LAST == RSMI_RAS_ERR_STATE_ENABLED,
                  "rsmi_gpu_block_t and/or above name map need to be updated"
                                                      " and then this assert");
 
@@ -547,11 +531,11 @@ rsmi_status_t rsmi_dev_ecc_status_get(uint32_t dv_ind, rsmi_gpu_block_t block,
     return RSMI_STATUS_INVALID_ARGS;
   }
   rsmi_status_t ret;
-  std::vector<std::string> val_vec;
+  uint64_t features_mask;
 
   DEVICE_MUTEX
 
-  ret = get_dev_value_vec(amd::smi::kDevErrCntFeatures, dv_ind, &val_vec);
+  ret = rsmi_dev_ecc_enabled_get(dv_ind, &features_mask);
 
   if (ret == RSMI_STATUS_FILE_ERROR) {
     return RSMI_STATUS_NOT_SUPPORTED;
@@ -560,27 +544,10 @@ rsmi_status_t rsmi_dev_ecc_status_get(uint32_t dv_ind, rsmi_gpu_block_t block,
     return ret;
   }
 
-  std::string blk_line;
-  std::string search_str = kRocmSMIBlockMap.at(block);
-  std::string state_str;
+  *state = (features_mask & block) ?
+                     RSMI_RAS_ERR_STATE_ENABLED : RSMI_RAS_ERR_STATE_DISABLED;
 
-  search_str += ":";
-
-  for (uint32_t i = 1; i < val_vec.size(); ++i) {  // Skip features line
-    std::istringstream fs1(val_vec[i]);
-
-    fs1 >> blk_line;
-
-    if (blk_line == search_str) {
-      fs1 >> state_str;
-      assert(kRocmSMIStateMap.count(state_str));
-      *state = kRocmSMIStateMap.at(state_str);
-      return RSMI_STATUS_SUCCESS;
-    }
-  }
-  assert(!"Block was not found");
-  *state = RSMI_RAS_ERR_STATE_INVALID;
-  return RSMI_STATUS_NOT_FOUND;
+  return RSMI_STATUS_SUCCESS;
   CATCH
 }
 
@@ -2471,6 +2438,78 @@ rsmi_compute_process_info_get(rsmi_process_info_t *procs,
   }
   if (procs == nullptr || *num_items > procs_found) {
     *num_items = procs_found;
+  }
+
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+rsmi_status_t
+rsmi_dev_memory_reserved_pages_get(uint32_t dv_ind, uint32_t *num_pages,
+                                          rsmi_retired_page_record_t *records) {
+  TRY
+
+  rsmi_status_t ret;
+
+  if (num_pages == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  std::vector<std::string> val_vec;
+
+  ret = get_dev_value_vec(amd::smi::kDevMemPageBad, dv_ind, &val_vec);
+
+  if (ret == RSMI_STATUS_FILE_ERROR) {
+    return RSMI_STATUS_NOT_SUPPORTED;
+  }
+  if (ret != RSMI_STATUS_SUCCESS) {
+    return ret;
+  }
+
+  if (records == nullptr || *num_pages > val_vec.size()) {
+    *num_pages = val_vec.size();
+  }
+  if (records == nullptr) {
+    return RSMI_STATUS_SUCCESS;
+  }
+
+  // Fill in records
+  char status_code;
+  rsmi_memory_page_status_t tmp_stat;
+  std::string junk;
+
+  for (uint32_t i = 0; i < *num_pages; ++i) {
+    std::istringstream fs1(val_vec[i]);
+
+    fs1 >> std::hex >> records[i].page_address;
+    fs1 >> junk;
+    assert(junk == ":");
+    fs1 >> std::hex >> records[i].page_size;
+    fs1 >> junk;
+    assert(junk == ":");
+    fs1 >> status_code;
+
+    switch (status_code) {
+      case 'P':
+        tmp_stat = RSMI_MEM_PAGE_STATUS_PENDING;
+        break;
+
+      case 'F':
+        tmp_stat = RSMI_MEM_PAGE_STATUS_UNRESERVABLE;
+        break;
+
+      case 'R':
+        tmp_stat = RSMI_MEM_PAGE_STATUS_RESERVED;
+        break;
+      default:
+        assert(!"Unexpected retired memory page status code read");
+        return RSMI_STATUS_UNKNOWN_ERROR;
+    }
+    records[i].status = tmp_stat;
+  }
+  if (*num_pages < val_vec.size()) {
+    return RSMI_STATUS_INSUFFICIENT_SIZE;
   }
 
   return RSMI_STATUS_SUCCESS;

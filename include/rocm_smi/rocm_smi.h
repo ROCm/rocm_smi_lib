@@ -361,10 +361,19 @@ typedef enum {
   RSMI_GPU_BLOCK_UMC = RSMI_GPU_BLOCK_FIRST,      //!< UMC block
   RSMI_GPU_BLOCK_SDMA =      0x0000000000000002,  //!< SDMA block
   RSMI_GPU_BLOCK_GFX =       0x0000000000000004,  //!< GFX block
+  RSMI_GPU_BLOCK_MMHUB =     0x0000000000000008,  //!< MMHUB block
+  RSMI_GPU_BLOCK_ATHUB =     0x0000000000000010,  //!< ATHUB block
+  RSMI_GPU_BLOCK_PCIE_BIF =  0x0000000000000020,  //!< PCIE_BIF block
+  RSMI_GPU_BLOCK_HDP =       0x0000000000000040,  //!< HDP block
+  RSMI_GPU_BLOCK_XGMI_WAFL = 0x0000000000000080,  //!< XGMI block
+  RSMI_GPU_BLOCK_DF =        0x0000000000000100,  //!< DF block
+  RSMI_GPU_BLOCK_SMN =       0x0000000000000200,  //!< SMN block
+  RSMI_GPU_BLOCK_SEM =       0x0000000000000400,  //!< SEM block
+  RSMI_GPU_BLOCK_MP0 =       0x0000000000000800,  //!< MP0 block
+  RSMI_GPU_BLOCK_MP1 =       0x0000000000001000,  //!< MP1 block
+  RSMI_GPU_BLOCK_FUSE =      0x0000000000002000,  //!< Fuse block
 
-  // New enum elements will be added as support is added for other blocks
-
-  RSMI_GPU_BLOCK_LAST = RSMI_GPU_BLOCK_GFX,       //!< The highest bit position
+  RSMI_GPU_BLOCK_LAST = RSMI_GPU_BLOCK_FUSE,       //!< The highest bit position
                                                   //!< for supported blocks
   RSMI_GPU_BLOCK_RESERVED =  0x8000000000000000
 } rsmi_gpu_block_t;
@@ -383,8 +392,9 @@ typedef enum {
   RSMI_RAS_ERR_STATE_MULT_UC,    //!< Multiple uncorrectable errors
   RSMI_RAS_ERR_STATE_POISON,     //!< Firmware detected error and isolated
                                  //!< page. Treat as uncorrectable.
+  RSMI_RAS_ERR_STATE_ENABLED,    //!< ECC is enabled
 
-  RSMI_RAS_ERR_STATE_LAST = RSMI_RAS_ERR_STATE_POISON,
+  RSMI_RAS_ERR_STATE_LAST = RSMI_RAS_ERR_STATE_ENABLED,
   RSMI_RAS_ERR_STATE_INVALID = 0xFFFFFFFF
 } rsmi_ras_err_state_t;
 
@@ -462,6 +472,27 @@ typedef uint64_t rsmi_bit_field_t;
 /// \cond Ignore in docs.
 typedef rsmi_bit_field_t rsmi_bit_field;
 /// \endcond
+
+/**
+ * @brief Reserved Memory Page States
+ */
+typedef enum {
+  RSMI_MEM_PAGE_STATUS_RESERVED = 0,  //!< Reserved. This gpu page is reserved
+                                      //!<  and not available for use
+  RSMI_MEM_PAGE_STATUS_PENDING,       //!< Pending. This gpu page is marked
+                                      //!<  as bad and will be marked reserved
+                                      //!<  at the next window.
+  RSMI_MEM_PAGE_STATUS_UNRESERVABLE   //!< Unable to reserve this page
+} rsmi_memory_page_status_t;
+
+/**
+ * @brief Reserved Memory Page Record
+ */
+typedef struct {
+  uint64_t page_address;                  //!< Start address of page
+  uint64_t page_size;                     //!< Page size
+  rsmi_memory_page_status_t status;       //!< Page "reserved" status
+} rsmi_retired_page_record_t;
 
 /**
  * @brief Number of possible power profiles that a system could support
@@ -1228,6 +1259,38 @@ rsmi_dev_memory_usage_get(uint32_t dv_ind, rsmi_memory_type_t mem_type,
 rsmi_status_t
 rsmi_dev_memory_busy_percent_get(uint32_t dv_ind, uint32_t *busy_percent);
 
+/**
+ * @brief Get information about reserved ("retired") memory pages
+ *
+ * @details Given a device index @p dv_ind, this function returns retired page
+ * information @p records corresponding to the device with the provided device
+ * index @p dv_ind. The number of retired page records is returned through @p
+ * num_pages. @p records may be NULL on input. In this case, the number of
+ * records available for retrieval will be returned through @p num_pages.
+ *
+ * @param[in] dv_ind a device index
+ *
+ * @param[inout] num_pages a pointer to a uint32. As input, the value passed
+ * through this parameter is the number of ::rsmi_retired_page_record_t's that
+ * may be safely written to the memory pointed to by @p records. This is the
+ * limit on how many records will be written to @p records. On return, @p
+ * num_pages will contain the number of records written to @p records, or the
+ * number of records that could have been written if enough memory had been
+ * provided.
+ *
+ * @param[inout] records A pointer to a block of memory to which the
+ * ::rsmi_retired_page_record_t values will be written. This value may be NULL.
+ * In this case, this function can be used to query how many records are
+ * available to read.
+ *
+ * @retval ::RSMI_STATUS_SUCCESS is returned upon successful call.
+ *
+ * ::RSMI_STATUS_INSUFFICIENT_SIZE is returned if more records were available
+ * than allowed by the provided, allocated memory.
+ */
+rsmi_status_t
+rsmi_dev_memory_reserved_pages_get(uint32_t dv_ind, uint32_t *num_pages,
+                                         rsmi_retired_page_record_t *records);
 /** @} */  // end of MemQuer
 
 /** @defgroup PhysQuer Physical State Queries
@@ -1764,6 +1827,10 @@ rsmi_dev_firmware_version_get(uint32_t dv_ind, rsmi_fw_block_t block,
  *
  * @retval ::RSMI_STATUS_SUCCESS is returned upon successful call.
  *
+ * ::RSMI_NOT_SUPPORTED will be returned if either ECC is not enabled for the
+ * specified block @p block, or if there is no kernel support for ECC for
+ * that block.
+ *
  */
 rsmi_status_t rsmi_dev_ecc_count_get(uint32_t dv_ind,
                               rsmi_gpu_block_t block, rsmi_error_count_t *ec);
@@ -1772,22 +1839,25 @@ rsmi_status_t rsmi_dev_ecc_count_get(uint32_t dv_ind,
  * @brief Retrieve the enabled ECC bit-mask
  *
  * @details Given a device index @p dv_ind, and a pointer to a uint64_t @p
- * enabled_mask, this function will write a bit_mask to memory pointed to by
- * @p enabled_mask. Upon a successful call, the bitmask can then be AND'd with
- * elements of the ::rsmi_gpu_block_t ennumeration to determine if the
- * corresponding block has ECC enabled. Note that the bits above
- * ::RSMI_GPU_BLOCK_LAST correspond to blocks that do not yet have ECC support.
+ * enabled_mask, this function will write bits to memory pointed to by
+ * @p enabled_blocks. Upon a successful call, @p enabled_blocks can then be
+ * AND'd with elements of the ::rsmi_gpu_block_t ennumeration to determine if
+ * the corresponding block has ECC enabled. Note that whether a block has ECC
+ * enabled or not in the device is independent of whether there is kernel
+ * support for error counting for that block. Although a block may be enabled,
+ * but there may not be kernel support for reading error counters for that
+ * block.
  *
  * @param[in] dv_ind a device index
  *
- * @param[inout] enabled_mask A pointer to a uint64_t to which the enabled
- * mask will be written
+ * @param[inout] enabled_blocks A pointer to a uint64_t to which the enabled
+ * blocks bits will be written
  *
  * @retval ::RSMI_STATUS_SUCCESS is returned upon successful call.
  *
  */
 rsmi_status_t rsmi_dev_ecc_enabled_get(uint32_t dv_ind,
-                                                      uint64_t *enabled_mask);
+                                                    uint64_t *enabled_blocks);
 
 /**
  * @brief Retrieve the ECC status for a GPU block
