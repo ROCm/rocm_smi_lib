@@ -26,24 +26,36 @@ set(PKG_VERSION_NUM_COMMIT 0)
 ################# Determine the library version #########################
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "rsmi_pkg_ver")
+set(SO_VERSION_GIT_TAG_PREFIX "rsmi_so_ver")
 
-get_current_version("1.0.0" ${PKG_VERSION_GIT_TAG_PREFIX})
-num_change_since_prev_pkg(${PKG_VERSION_GIT_TAG_PREFIX})
-# VERSION_* variables should be set by get_current_version
-set(PKG_VERSION_STR "${VERSION_STRING}.${NUM_COMMITS}")
+# provide git to utilities
+find_program (GIT NAMES git)
+
+get_package_version_number("1.0.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+# VERSION_* variables should be set by get_version_from_tag
 message("Package version: ${PKG_VERSION_STR}")
 
 # Debian package specific variables
 # Set a default value for the package version
-get_current_version("1.0.0.0" "rsmi_so_ver")
+get_version_from_tag("1.0.0.0" ${SO_VERSION_GIT_TAG_PREFIX} GIT)
 
-# VERSION_* variables should be set by get_current_version
+# VERSION_* variables should be set by get_version_from_tag
 set(SO_VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}")
 set(${ROCM_SMI}_VERSION_MAJOR "${VERSION_MAJOR}")
 set(${ROCM_SMI}_VERSION_MINOR "${VERSION_MINOR}")
 set(${ROCM_SMI}_VERSION_PATCH "0")
 set(${ROCM_SMI}_VERSION_BUILD "0")
 message("SOVERSION: ${SO_VERSION_STRING}")
+
+## Define default variable and variables for the optional build target
+##  rocm_smi_lib-dev
+set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}
+                              CACHE STRING "Location of rocm_smi source code.")
+set(CMAKE_INSTALL_PREFIX "/opt/rocm"
+                                CACHE STRING "Default installation directory.")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/rocm"
+                                      CACHE STRING "Default packaging prefix.")
+set(CPACK_GENERATOR "DEB;RPM"  CACHE STRING "Default packaging generators.")
 
 project(${ROCM_SMI_TARGET})
 
@@ -127,16 +139,6 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL Release)
           TARGET ${ROCM_SMI_TARGET}
           POST_BUILD COMMAND ${CMAKE_STRIP} lib${ROCM_SMI_TARGET}.so)
 endif ()
-
-## Define default variable and variables for the optional build target
-##  rocm_smi_lib-dev
-set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}
-                              CACHE STRING "Location of rocm_smi source code.")
-set(CMAKE_INSTALL_PREFIX "/opt/rocm"
-                                CACHE STRING "Default installation directory.")
-set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/rocm"
-                                      CACHE STRING "Default packaging prefix.")
-set(CPACK_GENERATOR "DEB;RPM"  CACHE STRING "Default packaging generators.")
 
 ## Add the install directives for the runtime library.
 install(TARGETS ${ROCM_SMI_TARGET}
