@@ -38,6 +38,14 @@ if(WIN32)
   message("This sample is not supported on Windows platform")
   return()
 endif()
+
+## Set default module path if not already set
+if(NOT DEFINED CMAKE_MODULE_PATH)
+    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
+endif()
+## Include common cmake modules
+include(utils)
+
 #
 # Process input variables
 #
@@ -92,6 +100,27 @@ endif()
 set(ROCMINFO_EXE "rocminfo")
 set(PROJECT_NAME ${ROCMINFO_EXE})
 project (${PROJECT_NAME})
+
+
+
+# The following default version values should be updated as appropriate for
+# ABI breaks (update MAJOR and MINOR), and ABI/API additions (update MINOR).
+# Until ABI stabilizes VERSION_MAJOR will be 0. This should be over-ridden
+# by git tags (through "git describe") when they are present.
+set(PKG_VERSION_MAJOR 1)
+set(PKG_VERSION_MINOR 0)
+set(PKG_VERSION_PATCH 0)
+set(PKG_VERSION_NUM_COMMIT 0)
+
+################# Determine the library version #########################
+## Setup the package version based on git tags.
+set(PKG_VERSION_GIT_TAG_PREFIX "rocminfo_pkg_ver")
+
+find_program (GIT NAMES git)
+
+get_package_version_number("1.0.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+# VERSION_* variables should be set by get_version_from_tag
+message("Package version: ${PKG_VERSION_STR}")
 
 #
 # Print out the build configuration being used:
@@ -207,31 +236,21 @@ install (
 ###########################
 # Packaging directives
 ###########################
-set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+# set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PKG_VERSION_STR}")
 
 if (NOT DEFINED CPACK_PACKAGE_VENDOR)
     set(CPACK_PACKAGE_VENDOR "AMD")
 endif ()
 
-if (NOT DEFINED CPACK_PACKAGE_VERSION_MAJOR)
-    set(CPACK_PACKAGE_VERSION_MAJOR "1")
-endif ()
-
-if (NOT DEFINED CPACK_PACKAGE_VERSION_MINOR)
-    set(CPACK_PACKAGE_VERSION_MINOR "0")
-endif ()
-
-if (NOT DEFINED CPACK_PACKAGE_VERSION_PATCH)
-    set(CPACK_PACKAGE_VERSION_PATCH "0")
-endif ()
-
-if (NOT DEFINED CPACK_PACKAGE_CONTACT)
-    set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
-endif ()
-
 if (NOT DEFINED CPACK_PACKAGE_DESCRIPTION_SUMMARY)
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Radeon Open Compute (ROCm) Runtime rocminfo tool")
 endif ()
+
+
+if (NOT DEFINED CPACK_PACKAGE_CONTACT)
+    set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
+endif()
 
 ###########################
 # Debian package specific variables
