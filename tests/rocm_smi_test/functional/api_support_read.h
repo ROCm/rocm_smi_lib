@@ -1,5 +1,7 @@
 /*
  * =============================================================================
+ *   ROC Runtime Conformance Release License
+ * =============================================================================
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
@@ -40,27 +42,32 @@
  * DEALINGS WITH THE SOFTWARE.
  *
  */
-#ifndef INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_
-#define INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_
+#ifndef TESTS_ROCM_SMI_TEST_FUNCTIONAL_API_SUPPORT_READ_H_
+#define TESTS_ROCM_SMI_TEST_FUNCTIONAL_API_SUPPORT_READ_H_
 
-#include <string>
-#include <vector>
+#include "rocm_smi_test/test_base.h"
 
-#include "rocm_smi/rocm_smi.h"
+class TestAPISupportRead : public TestBase {
+ public:
+    TestAPISupportRead();
 
-namespace amd {
-namespace smi {
+  // @Brief: Destructor for test case of TestAPISupportRead
+  virtual ~TestAPISupportRead();
 
-int
-GetProcessInfo(rsmi_process_info_t *procs, uint32_t num_allocated,
-                                                   uint32_t *num_procs_found);
-int
-GetProcessInfoForPID(uint32_t pid, rsmi_process_info_t *proc);
+  // @Brief: Setup the environment for measurement
+  virtual void SetUp();
 
-int
-ReadKFDDeviceProperties(uint32_t dev_id, std::vector<std::string> *retVec);
+  // @Brief: Core measurement execution
+  virtual void Run();
 
-}  // namespace smi
-}  // namespace amd
+  // @Brief: Clean up and retrive the resource
+  virtual void Close();
 
-#endif  // INCLUDE_ROCM_SMI_ROCM_SMI_KFD_H_
+  // @Brief: Display  results
+  virtual void DisplayResults() const;
+
+  // @Brief: Display information about what this test does
+  virtual void DisplayTestInfo(void);
+};
+
+#endif  // TESTS_ROCM_SMI_TEST_FUNCTIONAL_API_SUPPORT_READ_H_
