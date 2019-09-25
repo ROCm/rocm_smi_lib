@@ -94,6 +94,7 @@ class Monitor {
     int writeMonitor(MonitorTypes type, uint32_t sensor_ind, std::string val);
     uint32_t setSensorLabelMap(void);
     uint32_t getSensorIndex(rsmi_temperature_type_t type);
+    void fillSupportedFuncs(SupportedFuncMap *supported_funcs);
 
  private:
     std::string MakeMonitorPath(MonitorTypes type, int32_t sensor_id);

@@ -45,6 +45,7 @@
 #include <errno.h>
 #include <sys/utsname.h>
 #include <pthread.h>
+#include <string.h>
 
 #include <sstream>
 #include <algorithm>
@@ -56,6 +57,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "rocm_smi/rocm_smi_common.h"  // Should go before rocm_smi.h
 #include "rocm_smi/rocm_smi.h"
 #include "rocm_smi/rocm_smi_main.h"
 #include "rocm_smi/rocm_smi_device.h"
@@ -620,7 +622,35 @@ rsmi_dev_pci_id_get(uint32_t dv_ind, uint64_t *bdfid) {
 
   DEVICE_MUTEX
 
-  *bdfid = dev->get_bdfid();
+  *bdfid = dev->bdfid();
+
+  int32_t ret = dev->populateKFDNodeProperties();
+
+  if (ret) {
+    return errno_to_rsmi_status(errno);
+  }
+
+  uint64_t domain = 0;
+
+  ret = dev->getKFDNodeProperty(amd::smi::kDevKFDNodePropDomain, &domain);
+
+  if (ret == EINVAL) {
+    // "domain" is not found in properties file; just go with the 16 bit
+    // domain already found
+    return RSMI_STATUS_SUCCESS;
+  }
+
+  // Replace the 16 bit domain originally set like this:
+  // BDFID = ((<DOMAIN> & 0xffff) << 32) | ((<BUS> & 0xff) << 8) |
+  //                        ((device& 0x1f) <<3 ) | (function & 0x7)
+  // with this:
+  // BDFID = ((<DOMAIN> & 0xffffffff) << 32) | ((<BUS> & 0xff) << 8) |
+  //                        ((device& 0x1f) <<3 ) | (function & 0x7)
+
+  assert((domain & 0xFFFFFFFF00000000) == 0);
+  (*bdfid) &= 0xFFFF;  // Clear out the old 16 bit domain
+  *bdfid |= (domain & 0xFFFFFFFF) << 32;
+
   return RSMI_STATUS_SUCCESS;
   CATCH
 }
@@ -1423,6 +1453,49 @@ rsmi_dev_name_get(uint32_t dv_ind, char *name, size_t len) {
 }
 
 rsmi_status_t
+rsmi_dev_brand_get(uint32_t dv_ind, char *brand, uint32_t len) {
+  GET_DEV_FROM_INDX
+  // Return 'invalid args' if arguments are invalid
+  if (brand == nullptr || len == 0) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+  std::map<std::string, std::string> brand_names = {
+    {"D05121", "mi25"},
+    {"D05131", "mi25"},
+    {"D05133", "mi25"},
+    {"D05151", "mi25"},
+    {"D16304", "mi50"},
+    {"D16302", "mi60"}
+  };
+  std::map<std::string, std::string>::iterator it;
+  std::string vbios_value;
+  std::string sku_value;
+  // Retrieve vbios and store in vbios_value string
+  int ret = dev->readDevInfo(amd::smi::kDevVBiosVer, &vbios_value);
+  if (ret != 0) {
+    return errno_to_rsmi_status(ret);
+  }
+  if (vbios_value.length() == 16) {
+    sku_value = vbios_value.substr(4, 6);
+    // Find the brand name using sku_value
+    it = brand_names.find(sku_value);
+    if (it != brand_names.end()) {
+      uint32_t ln = it->second.copy(brand, len);
+      brand[std::min(len - 1, ln)] = '\0';
+
+      if (len < (it->second.size() + 1)) {
+        return RSMI_STATUS_INSUFFICIENT_SIZE;
+      }
+
+      return RSMI_STATUS_SUCCESS;
+    }
+  }
+  // If there is no SKU match, return marketing name instead
+  rsmi_dev_name_get(dv_ind, brand, len);
+  return RSMI_STATUS_SUCCESS;
+}
+
+rsmi_status_t
 rsmi_dev_subsystem_name_get(uint32_t dv_ind, char *name, size_t len) {
   rsmi_status_t ret;
 
@@ -1905,13 +1978,12 @@ rsmi_dev_power_profile_presets_get(uint32_t dv_ind, uint32_t sensor_ind,
 }
 
 rsmi_status_t
-rsmi_dev_power_profile_set(uint32_t dv_ind, uint32_t sensor_ind,
+rsmi_dev_power_profile_set(uint32_t dv_ind, uint32_t dummy,
                                   rsmi_power_profile_preset_masks_t profile) {
   TRY
   REQUIRE_ROOT_ACCESS
 
-  ++sensor_ind;  // power sysfs files have 1-based indices
-
+  (void)dummy;
   DEVICE_MUTEX
   rsmi_status_t ret = set_power_profile(dv_ind, profile);
   return ret;
@@ -2427,7 +2499,7 @@ rsmi_compute_process_info_get(rsmi_process_info_t *procs,
 
   uint32_t procs_found = 0;
 
-  int err = amd::smi:: GetProcessInfo(procs, *num_items, &procs_found);
+  int err = amd::smi::GetProcessInfo(procs, *num_items, &procs_found);
 
   if (err) {
     return errno_to_rsmi_status(err);
@@ -2589,6 +2661,248 @@ rsmi_dev_xgmi_error_reset(uint32_t dv_ind) {
 
   if (ret != RSMI_STATUS_SUCCESS) {
     return ret;
+  }
+
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+enum iterator_handle_type {
+  FUNC_ITER = 0,
+  VARIANT_ITER,
+  SUBVARIANT_ITER,
+};
+
+rsmi_status_t
+rsmi_dev_supported_func_iterator_open(uint32_t dv_ind,
+                                         rsmi_func_id_iter_handle_t *handle) {
+  TRY
+  GET_DEV_FROM_INDX
+
+  if (handle == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  dev->fillSupportedFuncs();
+
+  *handle = new rsmi_func_id_iter_handle;
+
+  if (*handle == nullptr) {
+    return RSMI_STATUS_OUT_OF_RESOURCES;
+  }
+
+  (*handle)->id_type = FUNC_ITER;
+
+  if (dev->supported_funcs()->begin() == dev->supported_funcs()->end()) {
+    return RSMI_STATUS_NO_DATA;
+  } else {
+    SupportedFuncMapIt *supp_func_iter = new SupportedFuncMapIt;
+
+    if (supp_func_iter == nullptr) {
+      return RSMI_STATUS_OUT_OF_RESOURCES;
+    }
+    *supp_func_iter = dev->supported_funcs()->begin();
+
+    (*handle)->func_id_iter = reinterpret_cast<uintptr_t>(supp_func_iter);
+    (*handle)->container_ptr =
+                          reinterpret_cast<uintptr_t>(dev->supported_funcs());
+  }
+
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+rsmi_status_t
+rsmi_dev_supported_variant_iterator_open(
+                                 rsmi_func_id_iter_handle_t parent_iter,
+                                       rsmi_func_id_iter_handle_t *var_iter) {
+  TRY
+
+  if (var_iter == nullptr || parent_iter->id_type == SUBVARIANT_ITER) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  if (parent_iter->func_id_iter == 0) {
+    return RSMI_STATUS_NO_DATA;
+  }
+
+  *var_iter = new rsmi_func_id_iter_handle;
+
+  if (*var_iter == nullptr) {
+    return RSMI_STATUS_OUT_OF_RESOURCES;
+  }
+
+  VariantMapIt *variant_itr = nullptr;
+  SubVariantIt *sub_var_itr = nullptr;
+  SupportedFuncMapIt *func_iter;
+  std::shared_ptr<VariantMap> var_map_container;
+  std::shared_ptr<SubVariant> sub_var_map_container;
+
+  switch (parent_iter->id_type) {
+    case FUNC_ITER:
+      func_iter =
+            reinterpret_cast<SupportedFuncMapIt *>(parent_iter->func_id_iter);
+      var_map_container = (*func_iter)->second;
+
+      if (var_map_container == nullptr) {
+        return RSMI_STATUS_NO_DATA;
+      }
+
+      variant_itr = new VariantMapIt;
+      *variant_itr = var_map_container->begin();
+      (*var_iter)->func_id_iter = reinterpret_cast<uintptr_t>(variant_itr);
+      (*var_iter)->container_ptr =
+                         reinterpret_cast<uintptr_t>(var_map_container.get());
+      (*var_iter)->id_type = VARIANT_ITER;
+      break;
+
+    case VARIANT_ITER:
+      variant_itr =
+                  reinterpret_cast<VariantMapIt *>(parent_iter->func_id_iter);
+      sub_var_map_container = (*variant_itr)->second;
+
+      if (sub_var_map_container == nullptr) {
+        return RSMI_STATUS_NO_DATA;
+      }
+
+      sub_var_itr = new SubVariantIt;
+      *sub_var_itr = sub_var_map_container->begin();
+      (*var_iter)->func_id_iter = reinterpret_cast<uintptr_t>(sub_var_itr);
+      (*var_iter)->container_ptr =
+                     reinterpret_cast<uintptr_t>(sub_var_map_container.get());
+      (*var_iter)->id_type = SUBVARIANT_ITER;
+      break;
+
+    default:
+      assert(!"Unexpected iterator type");
+      return RSMI_STATUS_INVALID_ARGS;
+  }
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+rsmi_status_t
+rsmi_dev_supported_func_iterator_close(rsmi_func_id_iter_handle_t *handle) {
+  TRY
+
+  if (handle == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  if ((*handle)->id_type == FUNC_ITER) {
+    SupportedFuncMapIt *supp_func_iter =
+              reinterpret_cast<SupportedFuncMapIt *>((*handle)->func_id_iter);
+    delete supp_func_iter;
+  } else if ((*handle)->id_type == VARIANT_ITER) {
+    VariantMapIt *var_iter =
+                    reinterpret_cast<VariantMapIt *>((*handle)->func_id_iter);
+    delete var_iter;
+  }  else if ((*handle)->id_type == SUBVARIANT_ITER) {
+    SubVariant *subvar_iter =
+                      reinterpret_cast<SubVariant *>((*handle)->func_id_iter);
+    delete subvar_iter;
+  } else {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  delete *handle;
+
+  *handle = nullptr;
+
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+rsmi_status_t
+rsmi_func_iter_value_get(rsmi_func_id_iter_handle_t handle,
+                                                rsmi_func_id_value_t *value) {
+  TRY
+  if (value == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  if (handle->func_id_iter == 0) {
+    return RSMI_STATUS_NO_DATA;
+  }
+
+  SupportedFuncMapIt *func_itr = nullptr;
+  VariantMapIt *variant_itr = nullptr;
+  SubVariantIt *sub_var_itr = nullptr;
+
+  switch (handle->id_type) {
+    case FUNC_ITER:
+      func_itr = reinterpret_cast<SupportedFuncMapIt *>(handle->func_id_iter);
+      value->name = (*func_itr)->first.c_str();
+      break;
+
+    case VARIANT_ITER:
+      variant_itr = reinterpret_cast<VariantMapIt *>(handle->func_id_iter);
+      value->id = (*variant_itr)->first;
+      break;
+
+    case SUBVARIANT_ITER:
+      sub_var_itr = reinterpret_cast<SubVariantIt *>(handle->func_id_iter);
+      value->id = *(*sub_var_itr);
+      break;
+
+    default:
+      return RSMI_STATUS_INVALID_ARGS;
+  }
+  CATCH
+  return RSMI_STATUS_SUCCESS;
+}
+
+rsmi_status_t
+rsmi_func_iter_next(rsmi_func_id_iter_handle_t handle) {
+  TRY
+  if (handle->func_id_iter == 0) {
+    return RSMI_STATUS_NO_DATA;
+  }
+
+  SupportedFuncMapIt *func_iter;
+  VariantMapIt *var_iter;
+  SubVariantIt *sub_var_iter;
+
+  switch (handle->id_type) {
+    case FUNC_ITER:
+      func_iter = reinterpret_cast<SupportedFuncMapIt *>(handle->func_id_iter);
+      (*func_iter)++;
+
+      if (*func_iter ==
+         reinterpret_cast<SupportedFuncMap *>(handle->container_ptr)->end()) {
+        handle->func_id_iter = 0;
+        return RSMI_STATUS_NO_DATA;
+      }
+      break;
+
+    case VARIANT_ITER:
+      var_iter = reinterpret_cast<VariantMapIt *>(handle->func_id_iter);
+      (*var_iter)++;
+      if (*var_iter ==
+               reinterpret_cast<VariantMap *>(handle->container_ptr)->end()) {
+        handle->func_id_iter = 0;
+        return RSMI_STATUS_NO_DATA;
+      }
+      break;
+
+    case SUBVARIANT_ITER:
+      sub_var_iter = reinterpret_cast<SubVariantIt *>(handle->func_id_iter);
+      (*sub_var_iter)++;
+      if (*sub_var_iter ==
+               reinterpret_cast<SubVariant *>(handle->container_ptr)->end()) {
+        handle->func_id_iter = 0;
+        return RSMI_STATUS_NO_DATA;
+      }
+      break;
+
+      break;
+
+    default:
+      return RSMI_STATUS_INVALID_ARGS;
   }
 
   return RSMI_STATUS_SUCCESS;
