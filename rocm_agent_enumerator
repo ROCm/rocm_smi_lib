@@ -68,7 +68,7 @@ def readFromTargetLstFile():
       target = getGCNISA(line, match_from_beginning = True)
       if target is not None:
         target_list.append(target)
-    
+
   return target_list
 
 def readFromROCMINFO():
@@ -123,11 +123,15 @@ def main():
   The program collects the list in 3 different ways, in the order of
   precendence:
 
-  1. target.lst : user-supplied text file. This is used in a container setting
+  1. ROCM_TARGET_LST : a user defined environment variable, set to the path and
+                       filename where to find the "target.lst" file. This can be
+                       used in an install environment with sandbox, where
+                       execution of "rocminfo" is not possible.
+  2. target.lst : user-supplied text file. This is used in a container setting
                   where ROCm stack may usually not available.
-  2. rocminfo : a tool shipped with this script to enumerate GPU agents
+  3. rocminfo : a tool shipped with this script to enumerate GPU agents
                 available on a working ROCm stack.
-  3. lspci : enumerate PCI bus and locate supported devices from a hard-coded
+  4. lspci : enumerate PCI bus and locate supported devices from a hard-coded
              lookup table.
   """
   target_list = readFromTargetLstFile()
@@ -141,7 +145,7 @@ def main():
   # workaround to cope with existing rocm_agent_enumerator behavior where gfx000
   # would always be returned
   print("gfx000")
-  
+
   for gfx in target_list:
     print(gfx)
 
