@@ -118,6 +118,34 @@ static rsmi_status_t handleException() {
     amd::smi::pthread_wrap _pw(*get_mutex(dv_ind)); \
     amd::smi::ScopedPthread _lock(_pw);
 
+/* This group of macros is used to facilitate checking of support for rsmi_dev*
+ * "getter" functions. When the return buffer is set to nullptr, the macro will
+ * check the previously gathered device support data to see if the function,
+ * with possible variants (e.g., memory types, firware types,...) and
+ * subvariants (e.g. monitors/sensors) are supported.
+ */
+// This macro assumes dev already available
+#define CHK_API_SUPPORT_ONLY(RT_PTR, VR, SUB_VR) \
+    if ((RT_PTR) == nullptr) { \
+      if (!dev->DeviceAPISupported(__FUNCTION__, (VR), (SUB_VR))) { \
+        return RSMI_STATUS_NOT_SUPPORTED; \
+      }  \
+      return RSMI_STATUS_INVALID_ARGS; \
+    } \
+
+#define CHK_SUPPORT(RT_PTR, VR, SUB_VR)  \
+    GET_DEV_FROM_INDX \
+    CHK_API_SUPPORT_ONLY(RT_PTR, VR, SUB_VR)
+
+#define CHK_SUPPORT_NAME_ONLY(RT_PTR) \
+    CHK_SUPPORT((RT_PTR), RSMI_DEFAULT_VARIANT, RSMI_DEFAULT_VARIANT) \
+
+#define CHK_SUPPORT_VAR(RT_PTR, VR) \
+    CHK_SUPPORT((RT_PTR), (VR), RSMI_DEFAULT_VARIANT) \
+
+#define CHK_SUPPORT_SUBVAR_ONLY(RT_PTR, SUB_VR) \
+    CHK_SUPPORT((RT_PTR), RSMI_DEFAULT_VARIANT, (SUB_VR)) \
+
 static pthread_mutex_t *get_mutex(uint32_t dv_ind) {
   amd::smi::RocmSMI& smi = amd::smi::RocmSMI::getInstance();
 
@@ -380,6 +408,12 @@ static rsmi_status_t get_dev_mon_value(amd::smi::MonitorTypes type,
     return errno_to_rsmi_status(ret);
   }
 
+  if (!amd::smi::IsInteger(val_str)) {
+    std::cerr << "Expected integer value, but got \"" << val_str << "\"" <<
+                                                                    std::endl;
+  }
+  assert(amd::smi::IsInteger(val_str));
+
   *val = std::stoul(val_str);
 
   return RSMI_STATUS_SUCCESS;
@@ -392,7 +426,7 @@ static rsmi_status_t set_dev_mon_value(amd::smi::MonitorTypes type,
 
   assert(dev->monitor() != nullptr);
 
-  int ret =  dev->monitor()->writeMonitor(type, sensor_ind,
+  int ret = dev->monitor()->writeMonitor(type, sensor_ind,
                                                          std::to_string(val));
 
   return errno_to_rsmi_status(ret);
@@ -407,10 +441,8 @@ static rsmi_status_t get_power_mon_value(amd::smi::PowerMonTypes type,
   }
 
   uint32_t ret = smi.DiscoverAMDPowerMonitors();
-  if (ret == EACCES) {
-    return RSMI_STATUS_PERMISSION;
-  } else if (ret != 0) {
-    return RSMI_STATUS_FILE_ERROR;
+  if (ret != 0) {
+    return errno_to_rsmi_status(ret);
   }
 
   std::shared_ptr<amd::smi::Device> dev = smi.monitor_devices()[dv_ind];
@@ -475,20 +507,15 @@ rsmi_num_monitor_devices(uint32_t *num_devices) {
 rsmi_status_t rsmi_dev_ecc_enabled_get(uint32_t dv_ind,
                                                     uint64_t *enabled_blks) {
   TRY
-  if (enabled_blks == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
   rsmi_status_t ret;
   std::string feature_line;
   std::string tmp_str;
 
+  CHK_SUPPORT_NAME_ONLY(enabled_blks)
 
   DEVICE_MUTEX
 
   ret = get_dev_value_line(amd::smi::kDevErrCntFeatures, dv_ind, &feature_line);
-  if (ret == RSMI_STATUS_FILE_ERROR) {
-    return RSMI_STATUS_NOT_SUPPORTED;
-  }
   if (ret != RSMI_STATUS_SUCCESS) {
     return ret;
   }
@@ -526,9 +553,9 @@ static_assert(RSMI_RAS_ERR_STATE_LAST == RSMI_RAS_ERR_STATE_ENABLED,
 rsmi_status_t rsmi_dev_ecc_status_get(uint32_t dv_ind, rsmi_gpu_block_t block,
                                                  rsmi_ras_err_state_t *state) {
   TRY
-  if (state == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+
+  CHK_SUPPORT_NAME_ONLY(state)
+
   if (!is_power_of_2(block)) {
     return RSMI_STATUS_INVALID_ARGS;
   }
@@ -560,9 +587,8 @@ rsmi_dev_ecc_count_get(uint32_t dv_ind, rsmi_gpu_block_t block,
   rsmi_status_t ret;
 
   TRY
-  if (ec == nullptr || block > RSMI_GPU_BLOCK_LAST) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_VAR(ec, block)
+
 
   amd::smi::DevInfoTypes type;
   switch (block) {
@@ -611,15 +637,12 @@ rsmi_dev_ecc_count_get(uint32_t dv_ind, rsmi_gpu_block_t block,
   return ret;
   CATCH
 }
+
 rsmi_status_t
 rsmi_dev_pci_id_get(uint32_t dv_ind, uint64_t *bdfid) {
   TRY
 
-  if (bdfid == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-  GET_DEV_FROM_INDX
-
+  CHK_SUPPORT_NAME_ONLY(bdfid)
   DEVICE_MUTEX
 
   *bdfid = dev->bdfid();
@@ -678,24 +701,28 @@ get_id(uint32_t dv_ind, amd::smi::DevInfoTypes typ, uint16_t *id) {
 
 rsmi_status_t
 rsmi_dev_id_get(uint32_t dv_ind, uint16_t *id) {
+  CHK_SUPPORT_NAME_ONLY(id)
   DEVICE_MUTEX
   return get_id(dv_ind, amd::smi::kDevDevID, id);
 }
 
 rsmi_status_t
 rsmi_dev_subsystem_id_get(uint32_t dv_ind, uint16_t *id) {
+  CHK_SUPPORT_NAME_ONLY(id)
   DEVICE_MUTEX
   return get_id(dv_ind, amd::smi::kDevSubSysDevID, id);
 }
 
 rsmi_status_t
 rsmi_dev_vendor_id_get(uint32_t dv_ind, uint16_t *id) {
+  CHK_SUPPORT_NAME_ONLY(id)
   DEVICE_MUTEX
   return get_id(dv_ind, amd::smi::kDevVendorID, id);
 }
 
 rsmi_status_t
 rsmi_dev_subsystem_vendor_id_get(uint32_t dv_ind, uint16_t *id) {
+  CHK_SUPPORT_NAME_ONLY(id)
   DEVICE_MUTEX
   return get_id(dv_ind, amd::smi::kDevSubSysVendorID, id);
 }
@@ -704,6 +731,8 @@ rsmi_status_t
 rsmi_dev_perf_level_get(uint32_t dv_ind, rsmi_dev_perf_level_t *perf) {
   TRY
   std::string val_str;
+
+  CHK_SUPPORT_NAME_ONLY(perf)
   DEVICE_MUTEX
 
   rsmi_status_t ret = get_dev_value_str(amd::smi::kDevPerfLevel, dv_ind,
@@ -722,6 +751,7 @@ rsmi_status_t
 rsmi_dev_overdrive_level_get(uint32_t dv_ind, uint32_t *od) {
   TRY
   std::string val_str;
+  CHK_SUPPORT_NAME_ONLY(od)
   DEVICE_MUTEX
 
   rsmi_status_t ret = get_dev_value_str(amd::smi::kDevOverDriveLevel, dv_ind,
@@ -1050,6 +1080,8 @@ rsmi_dev_gpu_clk_freq_get(uint32_t dv_ind, rsmi_clk_type_t clk_type,
   TRY
   amd::smi::DevInfoTypes dev_type;
 
+  CHK_SUPPORT_VAR(f, clk_type)
+
   switch (clk_type) {
     case RSMI_CLK_TYPE_SYS:
       dev_type = amd::smi::kDevGPUSClk;
@@ -1082,12 +1114,8 @@ rsmi_dev_firmware_version_get(uint32_t dv_ind, rsmi_fw_block_t block,
                                                        uint64_t *fw_version) {
   rsmi_status_t ret;
 
-  if (fw_version == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
   TRY
-  GET_DEV_FROM_INDX
+  CHK_SUPPORT_VAR(fw_version, block)
 
   std::string val_str;
   amd::smi::DevInfoTypes dev_type;
@@ -1440,7 +1468,9 @@ rsmi_dev_name_get(uint32_t dv_ind, char *name, size_t len) {
   rsmi_status_t ret;
 
   TRY
-  if (name == nullptr || len == 0) {
+  CHK_SUPPORT_NAME_ONLY(name)
+
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
@@ -1454,9 +1484,8 @@ rsmi_dev_name_get(uint32_t dv_ind, char *name, size_t len) {
 
 rsmi_status_t
 rsmi_dev_brand_get(uint32_t dv_ind, char *brand, uint32_t len) {
-  GET_DEV_FROM_INDX
-  // Return 'invalid args' if arguments are invalid
-  if (brand == nullptr || len == 0) {
+  CHK_SUPPORT_NAME_ONLY(brand)
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
   std::map<std::string, std::string> brand_names = {
@@ -1496,11 +1525,41 @@ rsmi_dev_brand_get(uint32_t dv_ind, char *brand, uint32_t len) {
 }
 
 rsmi_status_t
+rsmi_dev_vram_vendor_get(uint32_t dv_ind, char *brand, uint32_t len) {
+  TRY
+  CHK_SUPPORT_NAME_ONLY(brand)
+
+  if (len == 0) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+  std::string val_str;
+  DEVICE_MUTEX
+  int ret = dev->readDevInfo(amd::smi::kDevVramVendor, &val_str);
+
+  if (ret != 0) {
+    return errno_to_rsmi_status(ret);
+  }
+
+  uint32_t ln = val_str.copy(brand, len);
+
+  brand[std::min(len - 1, ln)] = '\0';
+
+  if (len < (val_str.size() + 1)) {
+    return RSMI_STATUS_INSUFFICIENT_SIZE;
+  }
+  return RSMI_STATUS_SUCCESS;
+
+  CATCH
+}
+
+rsmi_status_t
 rsmi_dev_subsystem_name_get(uint32_t dv_ind, char *name, size_t len) {
   rsmi_status_t ret;
 
   TRY
-  if (name == nullptr || len == 0) {
+  CHK_SUPPORT_NAME_ONLY(name)
+
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
@@ -1516,8 +1575,7 @@ rsmi_dev_drm_render_minor_get(uint32_t dv_ind, uint32_t *minor) {
   rsmi_status_t ret;
 
   TRY
-  if (minor == nullptr)
-    return RSMI_STATUS_INVALID_ARGS;
+  CHK_SUPPORT_NAME_ONLY(minor)
 
   DEVICE_MUTEX
   ret = get_dev_drm_render_minor(dv_ind, minor);
@@ -1530,7 +1588,9 @@ rsmi_dev_vendor_name_get(uint32_t dv_ind, char *name, size_t len) {
   rsmi_status_t ret;
 
   TRY
-  if (name == nullptr || len == 0) {
+  CHK_SUPPORT_NAME_ONLY(name)
+
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
@@ -1544,11 +1604,7 @@ rsmi_dev_vendor_name_get(uint32_t dv_ind, char *name, size_t len) {
 rsmi_status_t
 rsmi_dev_pci_bandwidth_get(uint32_t dv_ind, rsmi_pcie_bandwidth_t *b) {
   TRY
-  assert(b != nullptr);
-
-  if (b == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_NAME_ONLY(b)
 
   DEVICE_MUTEX
 
@@ -1604,8 +1660,12 @@ rsmi_dev_pci_throughput_get(uint32_t dv_ind, uint64_t *sent,
                                    uint64_t *received, uint64_t *max_pkt_sz) {
   TRY
   rsmi_status_t ret;
-
   std::string val_str;
+
+  // We don't do CHK_SUPPORT_NAME_ONLY in this case as the user may
+  // choose to have any of the inout parameters as 0. Let the return code from
+  // get_dev_value_line() tell if this function is supported or not.
+  // CHK_SUPPORT_NAME_ONLY(...)
 
   DEVICE_MUTEX
 
@@ -1635,10 +1695,6 @@ rsmi_status_t
 rsmi_dev_temp_metric_get(uint32_t dv_ind, uint32_t sensor_type,
                        rsmi_temperature_metric_t metric, int64_t *temperature) {
   TRY
-
-  if (temperature == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
 
   rsmi_status_t ret;
   amd::smi::MonitorTypes mon_type;
@@ -1704,6 +1760,9 @@ rsmi_dev_temp_metric_get(uint32_t dv_ind, uint32_t sensor_type,
 
   uint32_t sensor_index =
          m->getSensorIndex(static_cast<rsmi_temperature_type_t>(sensor_type));
+
+  CHK_API_SUPPORT_ONLY(temperature, metric, sensor_index)
+
   ret = get_dev_mon_value(mon_type, dv_ind, sensor_index, temperature);
 
   return ret;
@@ -1714,13 +1773,11 @@ rsmi_status_t
 rsmi_dev_fan_speed_get(uint32_t dv_ind, uint32_t sensor_ind, int64_t *speed) {
   TRY
 
-  if (speed == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
   rsmi_status_t ret;
 
   ++sensor_ind;  // fan sysfs files have 1-based indices
+
+  CHK_SUPPORT_SUBVAR_ONLY(speed, sensor_ind)
 
   DEVICE_MUTEX
 
@@ -1734,10 +1791,9 @@ rsmi_status_t
 rsmi_dev_fan_rpms_get(uint32_t dv_ind, uint32_t sensor_ind, int64_t *speed) {
   TRY
 
-  if (speed == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
   ++sensor_ind;  // fan sysfs files have 1-based indices
+
+  CHK_SUPPORT_SUBVAR_ONLY(speed, sensor_ind)
 
   rsmi_status_t ret;
 
@@ -1752,7 +1808,6 @@ rsmi_dev_fan_rpms_get(uint32_t dv_ind, uint32_t sensor_ind, int64_t *speed) {
 rsmi_status_t
 rsmi_dev_fan_reset(uint32_t dv_ind, uint32_t sensor_ind) {
   TRY
-
   rsmi_status_t ret;
 
   ++sensor_ind;  // fan sysfs files have 1-based indices
@@ -1761,7 +1816,6 @@ rsmi_dev_fan_reset(uint32_t dv_ind, uint32_t sensor_ind) {
 
   ret = set_dev_mon_value<uint64_t>(amd::smi::kMonFanCntrlEnable,
                                                        dv_ind, sensor_ind, 2);
-
   return ret;
 
   CATCH
@@ -1809,15 +1863,9 @@ rsmi_status_t
 rsmi_dev_fan_speed_max_get(uint32_t dv_ind, uint32_t sensor_ind,
                                                         uint64_t *max_speed) {
   TRY
-
-  if (max_speed == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
-  ++sensor_ind;  // fan sysfs files have 1-based indices
-
   rsmi_status_t ret;
-
+  ++sensor_ind;  // fan sysfs files have 1-based indices
+  CHK_SUPPORT_SUBVAR_ONLY(max_speed, sensor_ind)
   DEVICE_MUTEX
 
   ret = get_dev_mon_value(amd::smi::kMonMaxFanSpeed, dv_ind, sensor_ind,
@@ -1831,7 +1879,7 @@ rsmi_status_t
 rsmi_dev_od_volt_info_get(uint32_t dv_ind, rsmi_od_volt_freq_data_t *odv) {
   TRY
   DEVICE_MUTEX
-
+  CHK_SUPPORT_NAME_ONLY(odv)
   rsmi_status_t ret = get_od_clk_volt_info(dv_ind, odv);
 
   return ret;
@@ -1839,10 +1887,12 @@ rsmi_dev_od_volt_info_get(uint32_t dv_ind, rsmi_od_volt_freq_data_t *odv) {
 }
 
 rsmi_status_t rsmi_dev_od_volt_curve_regions_get(uint32_t dv_ind,
-                       uint32_t *num_regions, rsmi_freq_volt_region_t *buffer) {
+                     uint32_t *num_regions, rsmi_freq_volt_region_t *buffer) {
   TRY
 
-  if (buffer == nullptr || num_regions == nullptr || *num_regions == 0) {
+  CHK_SUPPORT_NAME_ONLY((num_regions == nullptr || buffer == nullptr) ?
+                                                        nullptr : num_regions)
+  if (*num_regions == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
@@ -1857,12 +1907,9 @@ rsmi_status_t
 rsmi_dev_power_max_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *power) {
   TRY
 
-  if (power == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
   (void)sensor_ind;  // Not used yet
   // ++sensor_ind;  // power sysfs files have 1-based indices
+  CHK_SUPPORT_NAME_ONLY(power)
 
   rsmi_status_t ret;
 
@@ -1877,11 +1924,9 @@ rsmi_status_t
 rsmi_dev_power_ave_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *power) {
   TRY
 
-  if (power == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
   ++sensor_ind;  // power sysfs files have 1-based indices
 
+  CHK_SUPPORT_SUBVAR_ONLY(power, sensor_ind)
   rsmi_status_t ret;
 
   DEVICE_MUTEX
@@ -1895,11 +1940,8 @@ rsmi_status_t
 rsmi_dev_power_cap_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *cap) {
   TRY
 
-  if (cap == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
   ++sensor_ind;  // power sysfs files have 1-based indices
+  CHK_SUPPORT_SUBVAR_ONLY(cap, sensor_ind)
 
   rsmi_status_t ret;
 
@@ -1915,12 +1957,9 @@ rsmi_dev_power_cap_range_get(uint32_t dv_ind, uint32_t sensor_ind,
                                                uint64_t *max, uint64_t *min) {
   TRY
 
-  if (max == nullptr || min == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-
   ++sensor_ind;  // power sysfs files have 1-based indices
-
+  CHK_SUPPORT_SUBVAR_ONLY((min == nullptr || max == nullptr ?nullptr : min),
+                                                                   sensor_ind)
   rsmi_status_t ret;
 
   DEVICE_MUTEX
@@ -1930,7 +1969,6 @@ rsmi_dev_power_cap_range_get(uint32_t dv_ind, uint32_t sensor_ind,
     ret = get_dev_mon_value(amd::smi::kMonPowerCapMin, dv_ind,
                                                              sensor_ind, min);
   }
-
   return ret;
   CATCH
 }
@@ -1965,11 +2003,12 @@ rsmi_dev_power_cap_set(uint32_t dv_ind, uint32_t sensor_ind, uint64_t cap) {
 }
 
 rsmi_status_t
-rsmi_dev_power_profile_presets_get(uint32_t dv_ind, uint32_t sensor_ind,
+rsmi_dev_power_profile_presets_get(uint32_t dv_ind, uint32_t reserved,
                                         rsmi_power_profile_status_t *status) {
   TRY
 
-  ++sensor_ind;  // power sysfs files have 1-based indices
+  (void)reserved;
+  CHK_SUPPORT_NAME_ONLY(status)
 
   DEVICE_MUTEX
   rsmi_status_t ret = get_power_profiles(dv_ind, status, nullptr);
@@ -1997,9 +2036,7 @@ rsmi_dev_memory_total_get(uint32_t dv_ind, rsmi_memory_type_t mem_type,
   rsmi_status_t ret;
   amd::smi::DevInfoTypes mem_type_file;
 
-  if (total == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_VAR(total, mem_type)
 
   switch (mem_type) {
     case RSMI_MEM_TYPE_GTT:
@@ -2032,9 +2069,7 @@ rsmi_dev_memory_usage_get(uint32_t dv_ind, rsmi_memory_type_t mem_type,
   rsmi_status_t ret;
   amd::smi::DevInfoTypes mem_type_file;
 
-  if (used == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_VAR(used, mem_type)
 
   switch (mem_type) {
     case RSMI_MEM_TYPE_GTT:
@@ -2069,6 +2104,7 @@ rsmi_dev_memory_busy_percent_get(uint32_t dv_ind, uint32_t *busy_percent) {
   if (busy_percent == nullptr) {
     return RSMI_STATUS_INVALID_ARGS;
   }
+  CHK_SUPPORT_NAME_ONLY(busy_percent)
 
   uint64_t tmp_util = 0;
 
@@ -2171,6 +2207,8 @@ rsmi_dev_busy_percent_get(uint32_t dv_ind, uint32_t *busy_percent) {
   TRY
   std::string val_str;
 
+  CHK_SUPPORT_NAME_ONLY(busy_percent)
+
   DEVICE_MUTEX
   rsmi_status_t ret = get_dev_value_str(amd::smi::kDevUsage, dv_ind,
                                                                     &val_str);
@@ -2189,12 +2227,13 @@ rsmi_dev_busy_percent_get(uint32_t dv_ind, uint32_t *busy_percent) {
 
 rsmi_status_t
 rsmi_dev_vbios_version_get(uint32_t dv_ind, char *vbios, uint32_t len) {
-  if (vbios == nullptr || len == 0) {
+  TRY
+  CHK_SUPPORT_NAME_ONLY(vbios)
+
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
-  TRY
-  GET_DEV_FROM_INDX
   std::string val_str;
 
   DEVICE_MUTEX
@@ -2285,7 +2324,8 @@ rsmi_version_str_get(rsmi_sw_component_t component, char *ver_str,
 
 rsmi_status_t rsmi_dev_serial_number_get(uint32_t dv_ind,
                                              char *serial_num, uint32_t len) {
-  if (serial_num == nullptr || len == 0) {
+  CHK_SUPPORT_NAME_ONLY(serial_num)
+  if (len == 0) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
@@ -2314,6 +2354,8 @@ rsmi_status_t rsmi_dev_serial_number_get(uint32_t dv_ind,
 rsmi_status_t
 rsmi_dev_pci_replay_counter_get(uint32_t dv_ind, uint64_t *counter) {
   TRY
+  CHK_SUPPORT_NAME_ONLY(counter)
+
   DEVICE_MUTEX
   rsmi_status_t ret;
 
@@ -2329,9 +2371,7 @@ rsmi_dev_unique_id_get(uint32_t dv_ind, uint64_t *unique_id) {
   DEVICE_MUTEX
   rsmi_status_t ret;
 
-  if (unique_id == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_NAME_ONLY(unique_id)
 
   ret = get_dev_value_int(amd::smi::kDevUniqueId, dv_ind, unique_id);
   return ret;
@@ -2344,14 +2384,10 @@ rsmi_dev_counter_create(uint32_t dv_ind, rsmi_event_type_t type,
   TRY
   DEVICE_MUTEX
   REQUIRE_ROOT_ACCESS
-  CHECK_DV_IND_RANGE
 
-  if (evnt_handle == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
-  if (type < RSMI_EVNT_FIRST || type > RSMI_EVNT_LAST) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  // Note we don't need to pass in the variant to CHK_SUPPORT_VAR because
+  // the success of this call doesn't depend on a sysfs file existing.
+  CHK_SUPPORT_NAME_ONLY(evnt_handle)
 
   *evnt_handle = reinterpret_cast<uintptr_t>(
                                       new amd::smi::evt::Event(type, dv_ind));
@@ -2452,9 +2488,7 @@ rsmi_counter_available_counters_get(uint32_t dv_ind,
   rsmi_status_t ret;
 
   TRY
-  if (available == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_VAR(available, grp)
   DEVICE_MUTEX
   uint64_t val;
 
@@ -2523,10 +2557,7 @@ rsmi_dev_memory_reserved_pages_get(uint32_t dv_ind, uint32_t *num_pages,
   TRY
 
   rsmi_status_t ret;
-
-  if (num_pages == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_NAME_ONLY(num_pages)
 
   std::vector<std::string> val_vec;
 
@@ -2614,9 +2645,7 @@ rsmi_dev_xgmi_error_status(uint32_t dv_ind, rsmi_xgmi_status_t *status) {
   TRY
   DEVICE_MUTEX
 
-  if (status == nullptr) {
-    return RSMI_STATUS_INVALID_ARGS;
-  }
+  CHK_SUPPORT_NAME_ONLY(status)
 
   rsmi_status_t ret;
   uint64_t status_code;
@@ -2657,13 +2686,9 @@ rsmi_dev_xgmi_error_reset(uint32_t dv_ind) {
   rsmi_status_t ret;
   uint64_t status_code;
 
+  // Reading xgmi_error resets it
   ret = get_dev_value_int(amd::smi::kDevXGMIError, dv_ind, &status_code);
-
-  if (ret != RSMI_STATUS_SUCCESS) {
-    return ret;
-  }
-
-  return RSMI_STATUS_SUCCESS;
+  return ret;
 
   CATCH
 }
@@ -2897,8 +2922,6 @@ rsmi_func_iter_next(rsmi_func_id_iter_handle_t handle) {
         handle->func_id_iter = 0;
         return RSMI_STATUS_NO_DATA;
       }
-      break;
-
       break;
 
     default:

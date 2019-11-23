@@ -56,6 +56,7 @@
 #include <sstream>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 #include "rocm_smi/rocm_smi_main.h"
 #include "rocm_smi/rocm_smi_device.h"
@@ -100,6 +101,7 @@ static const char *kDevMemTotVRAMFName = "mem_info_vram_total";
 static const char *kDevMemUsedGTTFName = "mem_info_gtt_used";
 static const char *kDevMemUsedVisVRAMFName = "mem_info_vis_vram_used";
 static const char *kDevMemUsedVRAMFName = "mem_info_vram_used";
+static const char *kDevVramVendorFName = "mem_info_vram_vendor";
 static const char *kDevPCIEReplayCountFName = "pcie_replay_count";
 static const char *kDevUniqueIdFName = "unique_id";
 static const char *kDevDFCountersAvailableFName = "df_cntr_avail";
@@ -236,6 +238,7 @@ static const std::map<DevInfoTypes, const char *> kDevAttribNameMap = {
     {kDevMemUsedGTT, kDevMemUsedGTTFName},
     {kDevMemUsedVisVRAM, kDevMemUsedVisVRAMFName},
     {kDevMemUsedVRAM, kDevMemUsedVRAMFName},
+    {kDevVramVendor, kDevVramVendorFName},
     {kDevPCIEReplayCount, kDevPCIEReplayCountFName},
     {kDevUniqueId, kDevUniqueIdFName},
     {kDevDFCountersAvailable, kDevDFCountersAvailableFName},
@@ -328,6 +331,7 @@ static  std::map<DevInfoTypes, uint8_t> kDevInfoVarTypeToRSMIVariant = {
 
 static const std::map<const char *, dev_depends_t> kDevFuncDependsMap = {
     // Functions with only mandatory dependencies
+  {"rsmi_dev_vram_vendor_get",           {{kDevVramVendorFName}, {}}},
   {"rsmi_dev_id_get",                    {{kDevDevIDFName}, {}}},
   {"rsmi_dev_vendor_id_get",             {{kDevVendorIDFName}, {}}},
 
@@ -747,6 +751,7 @@ int Device::readDevInfo(DevInfoTypes type, std::string *val) {
     case kDevSubSysDevID:
     case kDevSubSysVendorID:
     case kDevVendorID:
+    case kDevVramVendor:
     case kDevVBiosVer:
     case kDevPCIEThruPut:
     case kDevSerialNumber:
@@ -907,6 +912,65 @@ void Device::fillSupportedFuncs(void) {
   }
   monitor()->fillSupportedFuncs(&supported_funcs_);
   // DumpSupportedFunctions();
+}
+
+bool Device::DeviceAPISupported(std::string name, uint64_t variant,
+                                                       uint64_t sub_variant) {
+  SupportedFuncMapIt func_it;
+  VariantMapIt var_it;
+  SubVariantIt sub_var_it;
+
+  fillSupportedFuncs();
+  func_it = supported_funcs_.find(name);
+
+  if (func_it == supported_funcs_.end()) {
+    return false;
+  }
+
+  if (variant != RSMI_DEFAULT_VARIANT) {
+    // if variant is != RSMI_DEFAULT_VARIANT, we should not have a nullptr
+    assert(func_it->second != nullptr);
+    var_it = func_it->second->find(variant);
+
+    if (var_it == func_it->second->end()) {
+      return false;
+    }
+
+    if (sub_variant == RSMI_DEFAULT_VARIANT) {
+      return true;
+    } else {  // sub_variant != RSMI_DEFAULT_VARIANT
+      // if variant is != RSMI_DEFAULT_VARIANT, we should not have a nullptr
+      assert(var_it->second != nullptr);
+
+      sub_var_it = std::find(var_it->second->begin(),
+                                          var_it->second->end(), sub_variant);
+      if (sub_var_it == var_it->second->end()) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  } else {  // variant == RSMI_DEFAULT_VARIANT
+    if (func_it->second != nullptr) {
+      var_it = func_it->second->find(variant);
+    }
+    if (sub_variant == RSMI_DEFAULT_VARIANT) {
+      return true;
+    } else {  // sub_variant != RSMI_DEFAULT_VARIANT
+      if (func_it->second == nullptr) {
+        return false;
+      }
+      sub_var_it = std::find(var_it->second->begin(),
+                                          var_it->second->end(), sub_variant);
+      if (sub_var_it == var_it->second->end()) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  }
+  assert(!"We should not reach here");
+  return false;
 }
 
 #undef RET_IF_NONZERO

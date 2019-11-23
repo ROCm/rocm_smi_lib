@@ -125,6 +125,7 @@ enum DevInfoTypes {
   kDevMemUsedGTT,
   kDevMemUsedVisVRAM,
   kDevMemUsedVRAM,
+  kDevVramVendor,
   kDevPCIEReplayCount,
   kDevUniqueId,
   kDevDFCountersAvailable,
@@ -193,6 +194,8 @@ class Device {
     SupportedFuncMap *supported_funcs(void) {return &supported_funcs_;}
     void fillSupportedFuncs(void);
     void DumpSupportedFunctions(void);
+    bool DeviceAPISupported(std::string name, uint64_t variant,
+                                                        uint64_t sub_variant);
 
  private:
     std::shared_ptr<Monitor> monitor_;

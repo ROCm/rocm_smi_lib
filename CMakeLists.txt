@@ -77,7 +77,11 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
                  "ROCm System Management Interface library")
 endif()
 
-set(CPACK_PACKAGE_FILE_NAME "rocm_smi_lib64-${PKG_VERSION_STR}")
+if (NOT ROCM_SMI_PACKAGE)
+   set(ROCM_SMI_PACKAGE rocm_smi_lib64)
+endif()
+
+set(CPACK_PACKAGE_FILE_NAME "${ROCM_SMI_PACKAGE}-${PKG_VERSION_STR}")
 ## Verbose output.
 set(CMAKE_VERBOSE_MAKEFILE on)
 
@@ -152,12 +156,17 @@ install(FILES ${SOURCE_DIR}/include/rocm_smi/rocm_smi.h
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
     "${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/postinst;
                                     ${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/prerm")
+set (CPACK_DEBIAN_PACKAGE_NAME  ${ROCM_SMI_PACKAGE})
+set (CPACK_DEBIAN_PACKAGE_VERSION ${PKG_VERSION_STR})
 
 # RPM package specific variables
 set(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE
                                    "${CMAKE_CURRENT_SOURCE_DIR}/RPM/rpm_post")
 set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE
                                  "${CMAKE_CURRENT_SOURCE_DIR}/RPM/rpm_postun")
+set (CPACK_RPM_PACKAGE_NAME  ${ROCM_SMI_PACKAGE})
+set (CPACK_RPM_PACKAGE_VERSION ${PKG_VERSION_STR})
+
 include (CPack)
 
 # Generate Doxygen documentation
