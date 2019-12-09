@@ -181,7 +181,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 # Extend the compiler flags for 64-bit builds
 #
 if (IS64BIT)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64  -msse -msse2")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64")
+  if((${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "x86_64") OR (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "AMD64"))
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -msse2")
+  endif()
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
