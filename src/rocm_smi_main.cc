@@ -55,12 +55,14 @@
 #include <utility>
 #include <functional>
 #include <cerrno>
+#include <unordered_map>
 
 #include "rocm_smi/rocm_smi.h"
 #include "rocm_smi/rocm_smi_device.h"
 #include "rocm_smi/rocm_smi_main.h"
 #include "rocm_smi/rocm_smi_exception.h"
 #include "rocm_smi/rocm_smi_utils.h"
+#include "rocm_smi/rocm_smi_kfd.h"
 
 static const char *kPathDRMRoot = "/sys/class/drm";
 static const char *kPathHWMonRoot = "/sys/class/hwmon";
@@ -89,7 +91,7 @@ static uint32_t  GetDrmRenderMinor(const std::string s) {
   std::string drm_path = s;
   int drm_minor = 0;
   const std::string render_file_prefix = "renderD";
-  const uint32_t prefix_size = render_file_prefix.size();
+  const uint64_t prefix_size = render_file_prefix.size();
   drm_path += "/device/drm";
 
   auto drm_dir = opendir(drm_path.c_str());
@@ -253,9 +255,9 @@ RocmSMI::Initialize(uint64_t flags) {
       ++i;
   }
 
-  // DiscoverDevices() will seach for devices and monitors and update internal
-  // data structures.
-  DiscoverDevices();
+  // DiscoverAmdgpuDevices() will seach for devices and monitors and update
+  // internal data structures.
+  DiscoverAmdgpuDevices();
 
   // IterateSMIDevices will iterate through all the known devices and apply
   // the provided call-back to each device found.
@@ -264,7 +266,34 @@ RocmSMI::Initialize(uint64_t flags) {
 
   if (ret != 0) {
     throw amd::smi::rsmi_exception(RSMI_INITIALIZATION_ERROR,
-                                      "Failed to initialize rocm_smi library.");
+               "Failed to initialize rocm_smi library (amdgpu node discovery.");
+  }
+
+  std::map<uint64_t, std::shared_ptr<KFDNode>> tmp_map;
+  ret = DiscoverKFDNodes(&tmp_map);
+  if (ret != 0) {
+    throw amd::smi::rsmi_exception(RSMI_INITIALIZATION_ERROR,
+                 "Failed to initialize rocm_smi library (KFD node discovery).");
+  }
+
+  std::shared_ptr<amd::smi::Device> dev;
+
+  // 1. construct kfd_node_map_ with gpu_id as key and *Device as value
+  // 2. for each kfd node, write the corresponding dv_ind
+  // 3. for each amdgpu device, write the corresponding gpu_id
+  for (uint32_t dv_ind = 0; dv_ind < s_monitor_devices.size(); ++dv_ind) {
+    dev = s_monitor_devices[dv_ind];
+    uint64_t bdfid = dev->bdfid();
+    assert(tmp_map.find(bdfid) != tmp_map.end());
+    if (tmp_map.find(bdfid) == tmp_map.end()) {
+      throw amd::smi::rsmi_exception(RSMI_INITIALIZATION_ERROR,
+                   "amdgpu device bdfid has no KFD matching node");
+    }
+
+    tmp_map[bdfid]->set_amdgpu_dev_index(dv_ind);
+    uint64_t gpu_id = tmp_map[bdfid]->gpu_id();
+    dev->set_kfd_gpu_id(gpu_id);
+    kfd_node_map_[gpu_id] = tmp_map[bdfid];
   }
 }
 
@@ -289,21 +318,34 @@ RocmSMI& RocmSMI::getInstance(uint64_t flags) {
 }
 
 static int GetEnvVarInteger(const char *ev_str) {
+#ifdef NDEBUG
+  (void)ev_str;
+#else
   ev_str = getenv(ev_str);
 
   if (ev_str) {
     return atoi(ev_str);
   }
+#endif
   return 0;
 }
 
 // Get and store env. variables in this method
 void RocmSMI::GetEnvVariables(void) {
+#ifdef NDEBUG
+  (void)GetEnvVarInteger(nullptr);  // This is to quiet release build warning.
+  env_vars_.debug_output_bitfield = 0;
+  env_vars_.path_DRM_root_override = nullptr;
+  env_vars_.path_HWMon_root_override = nullptr;
+  env_vars_.path_power_root_override = nullptr;
+  env_vars_.enum_override = 0;
+#else
   env_vars_.debug_output_bitfield = GetEnvVarInteger("RSMI_DEBUG_BITFIELD");
   env_vars_.path_DRM_root_override   = getenv("RSMI_DEBUG_DRM_ROOT_OVERRIDE");
   env_vars_.path_HWMon_root_override = getenv("RSMI_DEBUG_HWMON_ROOT_OVERRIDE");
   env_vars_.path_power_root_override = getenv("RSMI_DEBUG_PP_ROOT_OVERRIDE");
   env_vars_.enum_override = GetEnvVarInteger("RSMI_DEBUG_ENUM_OVERRIDE");
+#endif
 }
 
 void
@@ -332,10 +374,11 @@ RocmSMI::AddToDeviceList(std::string dev_name) {
   }
 
   std::string d_name = dev_name;
-  uint32_t d_index = GetDeviceIndex(d_name);
+  uint32_t card_indx = GetDeviceIndex(d_name);
   dev->set_drm_render_minor(GetDrmRenderMinor(dev_path));
-  dev->set_index(d_index);
-  GetSupportedEventGroups(d_index, dev->supported_event_groups());
+  dev->set_card_index(card_indx);
+  GetSupportedEventGroups(card_indx, dev->supported_event_groups());
+
   devices_.push_back(dev);
 
   return;
@@ -368,7 +411,7 @@ static bool isAMDGPU(std::string dev_path) {
   return false;
 }
 
-uint32_t RocmSMI::DiscoverDevices(void) {
+uint32_t RocmSMI::DiscoverAmdgpuDevices(void) {
   auto ret = 0;
 
   // If this gets called more than once, clear previous findings.

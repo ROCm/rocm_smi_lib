@@ -461,6 +461,10 @@ static const std::map<const char *, dev_depends_t> kDevFuncDependsMap = {
 Device::Device(std::string p, RocmSMI_env_vars const *e) : path_(p), env_(e) {
   monitor_ = nullptr;
 
+#ifdef NDEBUG
+    env_ = nullptr;
+#endif
+
   // Get the device name
   size_t i = path_.rfind('/', path_.length());
   std::string dev = path_.substr(i + 1, path_.length() - i);
@@ -486,6 +490,7 @@ template <typename T>
 int Device::openSysfsFileStream(DevInfoTypes type, T *fs, const char *str) {
   auto sysfs_path = path_;
 
+#ifdef DEBUG
   if (env_->path_DRM_root_override && type == env_->enum_override) {
     sysfs_path = env_->path_DRM_root_override;
 
@@ -493,6 +498,7 @@ int Device::openSysfsFileStream(DevInfoTypes type, T *fs, const char *str) {
       sysfs_path += ".write";
     }
   }
+#endif
 
   sysfs_path += "/device/";
   sysfs_path += kDevAttribNameMap.at(type);
@@ -545,11 +551,8 @@ int Device::writeDevInfoStr(DevInfoTypes type, std::string valStr) {
     return ret;
   }
 
-  try {
-    fs << valStr;
-  } catch (...) {
-    std::cout << "Write to file threw exception" << std::endl;
-  }
+  // We'll catch any exceptions in rocm_smi.cc code.
+  fs << valStr;
   fs.close();
 
   return 0;
@@ -581,7 +584,7 @@ int Device::writeDevInfo(DevInfoTypes type, uint64_t val) {
       break;
 
     default:
-      break;
+      return EINVAL;
   }
 
   return -1;
@@ -599,7 +602,7 @@ int Device::writeDevInfo(DevInfoTypes type, std::string val) {
       return writeDevInfoStr(type, val);
 
     default:
-      break;
+      return EINVAL;
   }
 
   return -1;
@@ -661,6 +664,10 @@ int Device::readDevInfo(DevInfoTypes type, uint64_t *val) {
     case kDevErrCntFeatures:
       ret = readDevInfoStr(type, &tempStr);
       RET_IF_NONZERO(ret);
+
+      if (tempStr == "") {
+        return EINVAL;
+      }
       *val = std::stoi(tempStr, 0, 16);
       break;
 
@@ -678,6 +685,9 @@ int Device::readDevInfo(DevInfoTypes type, uint64_t *val) {
     case kDevXGMIError:
       ret = readDevInfoStr(type, &tempStr);
       RET_IF_NONZERO(ret);
+      if (tempStr == "") {
+        return EINVAL;
+      }
       *val = std::stoul(tempStr, 0);
       break;
 
@@ -705,11 +715,14 @@ int Device::readDevInfo(DevInfoTypes type, uint64_t *val) {
     case kDevFwVersionVcn:
       ret = readDevInfoStr(type, &tempStr);
       RET_IF_NONZERO(ret);
+      if (tempStr == "") {
+        return EINVAL;
+      }
       *val = std::stoul(tempStr, 0, 16);
       break;
 
     default:
-      return -1;
+      return EINVAL;
   }
   return 0;
 }
@@ -734,7 +747,7 @@ int Device::readDevInfo(DevInfoTypes type, std::vector<std::string> *val) {
       break;
 
     default:
-      return -1;
+      return EINVAL;
   }
 
   return 0;
@@ -759,55 +772,8 @@ int Device::readDevInfo(DevInfoTypes type, std::string *val) {
       break;
 
     default:
-      return -1;
+      return EINVAL;
   }
-  return 0;
-}
-
-int Device::populateKFDNodeProperties(bool force_update) {
-  int ret;
-
-  std::vector<std::string> propVec;
-
-  if (kfdNodePropMap_.size() > 0 && !force_update) {
-    return 0;
-  }
-
-  ret = ReadKFDDeviceProperties(index_, &propVec);
-
-  if (ret) {
-    return ret;
-  }
-
-  std::string key_str;
-  // std::string val_str;
-  uint64_t val_int;  // Assume all properties are unsigned integers for now
-  std::istringstream fs;
-
-  for (uint32_t i = 0; i < propVec.size(); ++i) {
-    fs.str(propVec[i]);
-    fs >> key_str;
-    fs >> val_int;
-
-    kfdNodePropMap_[key_str] = val_int;
-
-    fs.str("");
-    fs.clear();
-  }
-
-  return 0;
-}
-
-int Device::getKFDNodeProperty(DevKFDNodePropTypes prop, uint64_t *val) {
-  assert(val != nullptr);
-  assert(kDevKFDPropNameMap.find(prop) != kDevKFDPropNameMap.end());
-
-  const char *prop_name = kDevKFDPropNameMap.at(prop);
-  if (kfdNodePropMap_.find(prop_name) == kfdNodePropMap_.end()) {
-    return EINVAL;
-  }
-
-  *val = kfdNodePropMap_.at(prop_name);
   return 0;
 }
 
