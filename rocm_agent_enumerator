@@ -41,7 +41,7 @@ def staticVars(**kwargs):
     return func
   return deco
 
-@staticVars(search_term=re.compile("gfx\d+"))
+@staticVars(search_term=re.compile("gfx[0-9a-fA-F]+"))
 def getGCNISA(line, match_from_beginning = False):
  if match_from_beginning is True:
    result = getGCNISA.search_term.match(line)
