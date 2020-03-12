@@ -81,16 +81,13 @@ static rsmi_status_t handleException() {
     debug_print("Exception caught: %s.\n", e.what());
     return e.error_code();
   } catch (const std::exception& e) {
-    debug_print("Unhandled exception: %s\n", e.what());
-    assert(false && "Unhandled exception.");
+    debug_print("Exception caught: %s\n", e.what());
     return RSMI_STATUS_INTERNAL_EXCEPTION;
   } catch (const std::nested_exception& e) {
-    debug_print("Callback threw, forwarding.\n");
-    e.rethrow_nested();
+    debug_print("Callback threw.\n");
     return RSMI_STATUS_INTERNAL_EXCEPTION;
   } catch (...) {
-    assert(false && "Unhandled exception.");
-    abort();
+    debug_print("Unknown exception caught.\n");
     return RSMI_STATUS_INTERNAL_EXCEPTION;
   }
 }
@@ -3075,7 +3072,13 @@ rsmi_func_iter_value_get(rsmi_func_id_iter_handle_t handle,
 
     case SUBVARIANT_ITER:
       sub_var_itr = reinterpret_cast<SubVariantIt *>(handle->func_id_iter);
-      value->id = *(*sub_var_itr);
+
+      // The sub-variant refers to monitors types. We store those as the exist
+      // in the file name. For example, for temp2_crit, 2 is stored (crit is the
+      // variant). These are 1-based values. But the RSMI user expects a 0-based
+      // value, so we will convert it to RSMI-space by subracting 1:
+      assert(*(*sub_var_itr) > 0);
+      value->id = *(*sub_var_itr) - 1;
       break;
 
     default:
