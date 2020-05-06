@@ -1450,7 +1450,8 @@ get_id_name_str_from_line(uint64_t id, std::string ln,
   return ret_str;
 }
 
-static rsmi_status_t get_backup_name(uint16_t id, char *name, size_t len) {
+static rsmi_status_t get_backup_name(uint16_t id, char *name,
+                                               size_t len, eNameStrType typ) {
   std::string name_str;
 
   assert(name != nullptr);
@@ -1569,7 +1570,7 @@ static rsmi_status_t get_dev_name_from_id(uint32_t dv_ind, char *name,
           val_str.clear();
 
           return get_backup_name(typ == NAME_STR_DEVICE ?
-                                            device_id : subsys_id, name, len);
+                                       device_id : subsys_id, name, len, typ);
         }
 
         val_str = get_id_name_str_from_line(vendor_id, ln, &ln_str);
@@ -1593,7 +1594,7 @@ static rsmi_status_t get_dev_name_from_id(uint32_t dv_ind, char *name,
     // We should have already returned if we were looking for
     // device or subdivce
     assert(typ == NAME_STR_VENDOR);
-    return get_backup_name(vendor_id, name, len);
+    return get_backup_name(vendor_id, name, len, typ);
   }
   size_t ct = val_str.copy(name, len);
 
