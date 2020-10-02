@@ -773,6 +773,7 @@ typedef struct {
     uint32_t pasid;    //!< PASID
     uint64_t vram_usage;  //!< VRAM usage
     uint64_t sdma_usage;  //!< SDMA usage in microseconds
+    uint32_t cu_occupancy;    //!< Compute Unit usage in percent
 } rsmi_process_info_t;
 
 
