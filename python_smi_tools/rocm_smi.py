@@ -1558,7 +1558,7 @@ def showMemInfo(deviceList, memType):
     # Otherwise, split the single-item list by space, then split each element
     # up to process it below
 
-    if 'all' in memType:
+    if 'all' in memType or '*' in memType:
         returnTypes = memory_type_l
     else:
         returnTypes = memType
