@@ -493,7 +493,9 @@ Device::Device(std::string p, RocmSMI_env_vars const *e) :
   size_t i = path_.rfind('/', path_.length());
   std::string dev = path_.substr(i + 1, path_.length() - i);
 
-  std::string m_name("/rocm_smi_");
+  pid_t pid = getpid();
+
+  std::string m_name("/rocm_smi_"+std::to_string(pid)+"_");
   m_name += dev;
 
   mutex_ = shared_mutex_init(m_name.c_str(), 0777);
