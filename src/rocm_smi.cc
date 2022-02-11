@@ -4013,7 +4013,10 @@ rsmi_event_notification_get(int timeout_ms,
            reinterpret_cast<rsmi_evt_notification_data_t *>(&data[*num_elem]);
 
       uint32_t event;
-      while (fscanf(anon_fp, "%x %63s\n", &event,
+      #define __LEN__(X) #X
+      #define LEN(X) __LEN__(X)
+
+      while (fscanf(anon_fp, "%x %" LEN(MAX_EVENT_NOTIFICATION_MSG_SIZE)"[^\n]\n", &event,
                           reinterpret_cast<char *>(&data_item->message)) == 2) {
         /* Output is in format as "event information\n"
          * Both event are expressed in hex.
