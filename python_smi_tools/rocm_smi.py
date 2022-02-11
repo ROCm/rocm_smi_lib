@@ -449,8 +449,9 @@ def printEventList(deviceList, delay, eventList):
             return
     for eventType in eventList:
         mask |= 2 ** notification_type_names.index(eventType.upper())
+    mask |= 2 ** RSMI_EVT_NOTIF_ALL_PROCESS;
     for device in deviceList:
-        ret = rocmsmi.rsmi_event_notification_mask_set(device, mask)
+        ret = rocmsmi.rsmi_event_notification_mask_set(device, c_uint64(mask))
         if not rsmi_ret_ok(ret, device):
             printErrLog(device, 'Unable to set event notification mask.')
             return
@@ -2195,9 +2196,11 @@ def showEvents(deviceList, eventTypes):
     printLog(None, 'press \'q\' or \'ctrl + c\' to quit', None)
     eventTypeList = []
     for event in eventTypes:  # Cleaning list from wrong values
-        if event.replace(',', '').upper() in notification_type_names:
-            eventTypeList.append(event.replace(',', '').upper())
-        else:
+        lastlen = len(eventTypeList)
+        for notify in notification_type_names:
+            if event.replace(',', '').upper() in notify:
+                eventTypeList.append(notify)
+        if lastlen == len(eventTypeList):
             printErrLog(None, 'Ignoring unrecognized event type %s' % (event.replace(',', '')))
     if len(eventTypeList) == 0:
         eventTypeList = notification_type_names
@@ -2972,6 +2975,11 @@ if __name__ == '__main__':
             args.rasinject or args.gpureset or args.setperfdeterminism or args.setslevel or args.setmlevel or \
             args.setvc or args.setsrange or args.setmrange or args.setclock:
         relaunchAsSudo()
+
+    if args.showevents is not None:
+        for event in args.showevents:
+            if event.replace(',', '').upper() not in ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_PRE_RESET', 'GPU_POST_RESET']:
+                relaunchAsSudo()
 
     # If there is one or more device specified, use that for all commands, otherwise use a
     # list of all available devices. Also use "is not None" as device 0 would
