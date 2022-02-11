@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.6.3)
 set(AMD_SMI_LIBS_TARGET "amd_smi_libraries")
 
 set ( BUILD_SHARED_LIBS ON CACHE BOOL "Build shared library (.so) or not.")
+set ( ROCM_SMI_BUILD_DOCS OFF CACHE BOOL "Build documentation")
 
 ## Set default module path if not already set
 if(NOT DEFINED CMAKE_MODULE_PATH)
@@ -137,6 +138,12 @@ set(CMN_INC_LIST ${CMN_INC_LIST} "${COMMON_INC_DIR}/rocm_smi_kfd.h")
 set(CMN_INC_LIST ${CMN_INC_LIST} "${COMMON_INC_DIR}/rocm_smi_io_link.h")
 set(CMN_INC_LIST ${CMN_INC_LIST} "${COMMON_INC_DIR}/rocm_smi.h")
 set(CMN_INC_LIST ${CMN_INC_LIST} "${SHR_MUTEX_DIR}/shared_mutex.h")
+
+# Require doxygen and latex when requesting to build the docs
+if (ROCM_SMI_BUILD_DOCS)
+  find_package(Doxygen REQUIRED)
+  find_package(LATEX REQUIRED COMPONENTS PDFLATEX)
+endif()
 
 add_subdirectory("rocm_smi")
 add_subdirectory("oam")
