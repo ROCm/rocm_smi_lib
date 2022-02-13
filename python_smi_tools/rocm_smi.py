@@ -434,7 +434,7 @@ def printErrLog(device, err):
             logging.debug(errstr)
 
 
-def printEventList(device, delay, eventList):
+def printEventList(deviceList, delay, eventList):
     """ Print out notification events for a specified device
 
     @param device: DRM device identifier
@@ -442,22 +442,24 @@ def printEventList(device, delay, eventList):
     @param eventList: List of event type names (can be a single-item list)
     """
     mask = 0
-    ret = rocmsmi.rsmi_event_notification_init(device)
-    if not rsmi_ret_ok(ret, device):
-        printErrLog(device, 'Unable to initialize event notifications.')
-        return
+    for device in deviceList:
+        ret = rocmsmi.rsmi_event_notification_init(device)
+        if not rsmi_ret_ok(ret, device):
+            printErrLog(device, 'Unable to initialize event notifications.')
+            return
     for eventType in eventList:
         mask |= 2 ** notification_type_names.index(eventType.upper())
-    ret = rocmsmi.rsmi_event_notification_mask_set(device, mask)
-    if not rsmi_ret_ok(ret, device):
-        printErrLog(device, 'Unable to set event notification mask.')
-        return
+    for device in deviceList:
+        ret = rocmsmi.rsmi_event_notification_mask_set(device, mask)
+        if not rsmi_ret_ok(ret, device):
+            printErrLog(device, 'Unable to set event notification mask.')
+            return
     while 1:  # Exit condition from user keyboard input of 'q' or 'ctrl + c'
         num_elements = c_uint32(1)
         data = rsmi_evt_notification_data_t(1)
         rocmsmi.rsmi_event_notification_get(delay, byref(num_elements), byref(data))
         if len(data.message) > 0:
-            print2DArray([['\rGPU[%d]:\t' % (device), ctime().split()[3], notification_type_names[data.event.value - 1],
+            print2DArray([['\rGPU[%d]:\t' % (data.dv_ind), ctime().split()[3], notification_type_names[data.event.value - 1],
                            data.message.decode('utf8') + '\r']])
 
 
@@ -2201,10 +2203,7 @@ def showEvents(deviceList, eventTypes):
         eventTypeList = notification_type_names
     try:
         print2DArray([['DEVICE\t', 'TIME\t', 'TYPE\t', 'DESCRIPTION']])
-        # Create a seperate thread for each GPU
-        for device in deviceList:
-            _thread.start_new_thread(printEventList, (device, 1000, eventTypeList))
-            time.sleep(0.25)
+        _thread.start_new_thread(printEventList, (deviceList, 1000, eventTypeList))
     except Exception as e:
         printErrLog(device, 'Unable to start new thread. %s' % (e))
         return
