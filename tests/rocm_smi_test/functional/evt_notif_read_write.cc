@@ -108,6 +108,8 @@ void TestEvtNotifReadWrite::Run(void) {
                                            static_cast<uint32_t>(evt_type)+1);
   }
 
+  mask |= RSMI_EVENT_MASK_FROM_INDEX(RSMI_EVT_NOTIF_ALL_PROCESS);
+
   for (dv_ind = 0; dv_ind < num_monitor_devs(); ++dv_ind) {
     ret = rsmi_event_notification_init(dv_ind);
     if (ret == RSMI_STATUS_NOT_SUPPORTED) {
