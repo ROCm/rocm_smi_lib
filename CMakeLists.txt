@@ -14,6 +14,10 @@ endif()
 ## Include common cmake modules
 include(utils)
 
+if (NOT DEFINED CPACK_RESOURCE_FILE_LICENSE)
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+endif()
+
 set(ROCM_SMI "rocm_smi")
 set(ROCM_SMI_COMPONENT "lib${ROCM_SMI}")
 set(ROCM_SMI_TARGET "${ROCM_SMI}64")
@@ -136,6 +140,43 @@ set(CMN_INC_LIST ${CMN_INC_LIST} "${SHR_MUTEX_DIR}/shared_mutex.h")
 
 add_subdirectory("rocm_smi")
 add_subdirectory("oam")
+
+# Create cmake target
+# Add all targets to the build-tree export set
+export(TARGETS ${ROCM_SMI_TARGET} ${OAM_TARGET}
+  FILE "${PROJECT_BINARY_DIR}/rcom_smi_target.cmake")
+
+# Export the package for use from the build-tree
+# (this registers the build-tree with a global CMake-registry)
+export(PACKAGE rocm_smi)
+# Create the rocm_smiConfig.cmake and rocm_smiConfigVersion files
+# ... for the build tree
+set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
+set(CONF_LIB_DIR  "${PROJECT_BINARY_DIR}")
+set(CONF_LIBS "${ROCM_SMI_LIB_NAME}.so")
+configure_file(rocm_smi-config.cmake.in
+    "${PROJECT_BINARY_DIR}/rocm_smi-config.cmake" @ONLY)
+# ... for the install tree
+set(CONF_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/rocm_smi/include")
+set(CONF_LIB_DIR  "${CMAKE_INSTALL_PREFIX}/rocm_smi/lib")
+set(CONF_LIBS "${ROCM_SMI_LIB_NAME}.so")
+configure_file(rocm_smi-config.cmake.in
+  "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/rocm_smi-config.cmake" @ONLY)
+# ... for both
+configure_file(rocm_smi-config-version.cmake.in
+  "${PROJECT_BINARY_DIR}/rocm_smi-config-version.cmake" @ONLY)
+# Install the rocm_smi-config.cmake and rocm_smi-config-version.cmake
+install(FILES
+  "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/rocm_smi-config.cmake"
+  "${PROJECT_BINARY_DIR}/rocm_smi-config-version.cmake"
+  DESTINATION "${ROCM_SMI}/lib/cmake" COMPONENT dev)
+# Install the export set for use with the install-tree
+install(EXPORT rocm_smiTargets DESTINATION
+  "${ROCM_SMI}/lib/cmake" COMPONENT dev)
+
+#License file
+set(CPACK_RPM_PACKAGE_LICENSE "NCSA")
+install( FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION share/doc/smi-lib RENAME LICENSE.txt)
 
 ###########################
 # Packaging directives

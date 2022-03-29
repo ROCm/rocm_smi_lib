@@ -2081,6 +2081,7 @@ rsmi_dev_temp_metric_get(uint32_t dv_ind, uint32_t sensor_type,
 
   rsmi_status_t ret;
   amd::smi::MonitorTypes mon_type;
+  uint16_t val_ui16;
 
   switch (metric) {
     case RSMI_TEMP_CURRENT:
@@ -2129,6 +2130,10 @@ rsmi_dev_temp_metric_get(uint32_t dv_ind, uint32_t sensor_type,
       mon_type = amd::smi::kMonInvalid;
   }
 
+  if (temperature == nullptr) {
+      return RSMI_STATUS_INVALID_ARGS;
+  }
+
   // The HBM temperature is retreived from the gpu_metrics
   if (sensor_type == RSMI_TEMP_TYPE_HBM_0
      || sensor_type == RSMI_TEMP_TYPE_HBM_1
@@ -2144,25 +2149,26 @@ rsmi_dev_temp_metric_get(uint32_t dv_ind, uint32_t sensor_type,
          return ret;
        }
 
-       if (temperature == nullptr) {
-          return RSMI_STATUS_INVALID_ARGS;
+       switch (sensor_type) {
+         case RSMI_TEMP_TYPE_HBM_0:
+           val_ui16 = gpu_metrics.temperature_hbm[0];
+           break;
+         case RSMI_TEMP_TYPE_HBM_1:
+           val_ui16 = gpu_metrics.temperature_hbm[1];
+           break;
+         case RSMI_TEMP_TYPE_HBM_2:
+           val_ui16 = gpu_metrics.temperature_hbm[2];
+           break;
+         case RSMI_TEMP_TYPE_HBM_3:
+           val_ui16 = gpu_metrics.temperature_hbm[3];
+           break;
+         default:
+           return RSMI_STATUS_INVALID_ARGS;
        }
-
-       if (sensor_type == RSMI_TEMP_TYPE_HBM_0) {
-         *temperature = gpu_metrics.temperature_hbm[0] *
-         CENTRIGRADE_TO_MILLI_CENTIGRADE;
-       } else if (sensor_type == RSMI_TEMP_TYPE_HBM_1) {
-         *temperature = gpu_metrics.temperature_hbm[1] *
-         CENTRIGRADE_TO_MILLI_CENTIGRADE;
-       } else if (sensor_type == RSMI_TEMP_TYPE_HBM_2) {
-         *temperature = gpu_metrics.temperature_hbm[2] *
-         CENTRIGRADE_TO_MILLI_CENTIGRADE;
-       } else if (sensor_type == RSMI_TEMP_TYPE_HBM_3) {
-         *temperature = gpu_metrics.temperature_hbm[3] *
-         CENTRIGRADE_TO_MILLI_CENTIGRADE;
-       } else {
-         return RSMI_STATUS_NOT_SUPPORTED;
-       }
+       if (val_ui16 == UINT16_MAX)
+          return RSMI_STATUS_NOT_SUPPORTED;
+       else
+          *temperature = val_ui16 * CENTRIGRADE_TO_MILLI_CENTIGRADE;
 
        return RSMI_STATUS_SUCCESS;
   }  // end HBM temperature
@@ -2797,6 +2803,8 @@ rsmi_utilization_count_get(uint32_t dv_ind,
 
   rsmi_status_t ret;
   rsmi_gpu_metrics_t gpu_metrics;
+  uint32_t val_ui32;
+
   ret = rsmi_dev_gpu_metrics_info_get(dv_ind, &gpu_metrics);
   if (ret != RSMI_STATUS_SUCCESS) {
     return ret;
@@ -2810,14 +2818,18 @@ rsmi_utilization_count_get(uint32_t dv_ind,
   for (uint32_t index = 0 ; index < count; index++) {
     switch (utilization_counters[index].type) {
       case RSMI_COARSE_GRAIN_GFX_ACTIVITY:
-        utilization_counters[index].value = gpu_metrics.gfx_activity_acc;
+        val_ui32 = gpu_metrics.gfx_activity_acc;
         break;
       case RSMI_COARSE_GRAIN_MEM_ACTIVITY:
-        utilization_counters[index].value = gpu_metrics.mem_actvity_acc;
+        val_ui32 = gpu_metrics.mem_actvity_acc;
         break;
       default:
         return RSMI_STATUS_INVALID_ARGS;
     }
+    if (val_ui32 == UINT32_MAX)
+      return RSMI_STATUS_NOT_SUPPORTED;
+    else
+      utilization_counters[index].value = val_ui32;
   }
 
   *timestamp = gpu_metrics.system_clock_counter;
@@ -3453,6 +3465,49 @@ rsmi_topo_get_link_weight(uint32_t dv_ind_src, uint32_t dv_ind_dst,
   CATCH
 }
 
+ rsmi_status_t
+ rsmi_minmax_bandwidth_get(uint32_t dv_ind_src, uint32_t dv_ind_dst,
+                           uint64_t *min_bandwidth, uint64_t *max_bandwidth){
+  TRY
+
+  uint32_t dv_ind = dv_ind_src;
+  GET_DEV_AND_KFDNODE_FROM_INDX
+  DEVICE_MUTEX
+
+  if (min_bandwidth == nullptr || max_bandwidth == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  if (dv_ind_src == dv_ind_dst) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  rsmi_status_t status;
+  uint32_t node_ind_dst;
+  int ret = smi.get_node_index(dv_ind_dst, &node_ind_dst);
+
+  if (ret != 0) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+
+  amd::smi::IO_LINK_TYPE type;
+  ret = kfd_node->get_io_link_type(node_ind_dst, &type);
+  if ( ret == 0 && type == amd::smi::IOLINK_TYPE_XGMI) {
+      ret = kfd_node->get_io_link_bandwidth(node_ind_dst,max_bandwidth,
+                                                               min_bandwidth);
+      if (ret == 0)
+        status = RSMI_STATUS_SUCCESS;
+      else
+        status = RSMI_STATUS_INIT_ERROR;
+  } else {  // from src GPU to it's CPU node, or type not XGMI
+    status = RSMI_STATUS_NOT_SUPPORTED;
+  }
+
+  return status;
+  CATCH
+}
+
 rsmi_status_t
 rsmi_topo_get_link_type(uint32_t dv_ind_src, uint32_t dv_ind_dst,
                         uint64_t *hops, RSMI_IO_LINK_TYPE *type) {
@@ -3522,6 +3577,62 @@ rsmi_topo_get_link_type(uint32_t dv_ind_src, uint32_t dv_ind_dst,
   }
 
   return status;
+  CATCH
+}
+
+rsmi_status_t
+rsmi_is_P2P_accessible(uint32_t dv_ind_src, uint32_t dv_ind_dst,
+                       bool *accessible) {
+  TRY
+
+  uint32_t dv_ind = dv_ind_src;
+  GET_DEV_AND_KFDNODE_FROM_INDX
+
+  if (accessible == nullptr) {
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+
+  uint32_t node_ind_src, node_ind_dst;
+  // Fetch the source and destination GPU node index
+  if (smi.get_node_index(dv_ind_src, &node_ind_src) ||
+      smi.get_node_index(dv_ind_dst, &node_ind_dst)) {
+    *accessible = false;
+    return RSMI_STATUS_INVALID_ARGS;
+  }
+  // If source device is same as destination, return true
+  if (dv_ind_src == dv_ind_dst) {
+    *accessible = true;
+    return RSMI_STATUS_SUCCESS;
+  }
+  std::map<uint32_t, std::shared_ptr<amd::smi::IOLink>> io_link_map_tmp;
+  std::map<uint32_t, std::shared_ptr<amd::smi::IOLink>>::iterator it;
+  // Iterate over P2P links
+  if (DiscoverP2PLinksPerNode(node_ind_src, &io_link_map_tmp) == 0) {
+    for (it = io_link_map_tmp.begin(); it != io_link_map_tmp.end(); it++) {
+      if(it->first == node_ind_dst) {
+        *accessible = true;
+        return RSMI_STATUS_SUCCESS;
+      }
+    }
+    io_link_map_tmp.clear();
+  } else {
+    *accessible = false;
+    return RSMI_STATUS_FILE_ERROR;
+  }
+  // Iterate over IO links
+  if (DiscoverIOLinksPerNode(node_ind_src, &io_link_map_tmp) == 0) {
+    for (it = io_link_map_tmp.begin(); it != io_link_map_tmp.end(); it++) {
+      if(it->first == node_ind_dst) {
+        *accessible = true;
+        return RSMI_STATUS_SUCCESS;
+      }
+    }
+  } else {
+    *accessible = false;
+    return RSMI_STATUS_FILE_ERROR;
+  }
+  *accessible = false;
+  return RSMI_STATUS_SUCCESS;
   CATCH
 }
 
