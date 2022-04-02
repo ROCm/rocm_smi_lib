@@ -73,7 +73,14 @@ def driverInitialized():
     """
     driverInitialized = ''
     try:
-        driverInitialized = str(subprocess.check_output("cat /sys/module/amdgpu/initstate |grep live", shell=True))
+        if os.path.exists("/sys/module/amdgpu") :
+            if os.path.exists("/sys/module/amdgpu/initstate") :
+                # amdgpu is loadable module
+                driverInitialized = str(subprocess.check_output("cat /sys/module/amdgpu/initstate |grep live", shell=True))
+            else :
+                driverInitialized = "live"  # in case the amdgpu driver is built into ther kernel
+        else :
+            driverInitialized = ""
     except subprocess.CalledProcessError:
         pass
     if len(driverInitialized) > 0:
