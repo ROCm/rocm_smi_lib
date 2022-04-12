@@ -64,8 +64,13 @@ if (CMAKE_COMPILER_IS_GNUCC AND
 endif()
 
 ## Compiler flags
-set(CMAKE_CXX_FLAGS
- "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-rtti -m64 -msse -msse2 -std=c++11 ")
+if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+    set(CMAKE_CXX_FLAGS
+     "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-rtti -m64 -msse -msse2 -std=c++11 ")
+else ()
+    set(CMAKE_CXX_FLAGS
+     "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-rtti -std=c++11 ")
+endif ()
 # Security options
 set(CMAKE_CXX_FLAGS
  "${CMAKE_CXX_FLAGS} -Wconversion -Wcast-align ")
