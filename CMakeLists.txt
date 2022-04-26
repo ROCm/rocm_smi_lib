@@ -104,7 +104,7 @@ endif ()
 # Use this instead of above for 32 bit
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 
-if ("${CMAKE_BUILD_TYPE}" STREQUAL Release)
+if ("${CMAKE_BUILD_TYPE}" MATCHES Rel.*)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 else ()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -O0 -DDEBUG")
