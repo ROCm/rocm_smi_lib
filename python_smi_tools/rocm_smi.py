@@ -434,7 +434,7 @@ def printErrLog(device, err):
             logging.debug(errstr)
 
 
-def printEventList(device, delay, eventList):
+def printEventList(deviceList, delay, eventList):
     """ Print out notification events for a specified device
 
     @param device: DRM device identifier
@@ -442,22 +442,25 @@ def printEventList(device, delay, eventList):
     @param eventList: List of event type names (can be a single-item list)
     """
     mask = 0
-    ret = rocmsmi.rsmi_event_notification_init(device)
-    if not rsmi_ret_ok(ret, device):
-        printErrLog(device, 'Unable to initialize event notifications.')
-        return
+    for device in deviceList:
+        ret = rocmsmi.rsmi_event_notification_init(device)
+        if not rsmi_ret_ok(ret, device):
+            printErrLog(device, 'Unable to initialize event notifications.')
+            return
     for eventType in eventList:
         mask |= 2 ** notification_type_names.index(eventType.upper())
-    ret = rocmsmi.rsmi_event_notification_mask_set(device, mask)
-    if not rsmi_ret_ok(ret, device):
-        printErrLog(device, 'Unable to set event notification mask.')
-        return
+    mask |= 2 ** RSMI_EVT_NOTIF_ALL_PROCESS;
+    for device in deviceList:
+        ret = rocmsmi.rsmi_event_notification_mask_set(device, c_uint64(mask))
+        if not rsmi_ret_ok(ret, device):
+            printErrLog(device, 'Unable to set event notification mask.')
+            return
     while 1:  # Exit condition from user keyboard input of 'q' or 'ctrl + c'
         num_elements = c_uint32(1)
         data = rsmi_evt_notification_data_t(1)
         rocmsmi.rsmi_event_notification_get(delay, byref(num_elements), byref(data))
         if len(data.message) > 0:
-            print2DArray([['\rGPU[%d]:\t' % (device), ctime().split()[3], notification_type_names[data.event.value - 1],
+            print2DArray([['\rGPU[%d]:\t' % (data.dv_ind), ctime().split()[3], notification_type_names[data.event.value - 1],
                            data.message.decode('utf8') + '\r']])
 
 
@@ -2206,18 +2209,17 @@ def showEvents(deviceList, eventTypes):
     printLog(None, 'press \'q\' or \'ctrl + c\' to quit', None)
     eventTypeList = []
     for event in eventTypes:  # Cleaning list from wrong values
-        if event.replace(',', '').upper() in notification_type_names:
-            eventTypeList.append(event.replace(',', '').upper())
-        else:
+        lastlen = len(eventTypeList)
+        for notify in notification_type_names:
+            if event.replace(',', '').upper() in notify:
+                eventTypeList.append(notify)
+        if lastlen == len(eventTypeList):
             printErrLog(None, 'Ignoring unrecognized event type %s' % (event.replace(',', '')))
     if len(eventTypeList) == 0:
         eventTypeList = notification_type_names
     try:
         print2DArray([['DEVICE\t', 'TIME\t', 'TYPE\t', 'DESCRIPTION']])
-        # Create a seperate thread for each GPU
-        for device in deviceList:
-            _thread.start_new_thread(printEventList, (device, 1000, eventTypeList))
-            time.sleep(0.25)
+        _thread.start_new_thread(printEventList, (deviceList, 1000, eventTypeList))
     except Exception as e:
         printErrLog(device, 'Unable to start new thread. %s' % (e))
         return
@@ -2986,6 +2988,11 @@ if __name__ == '__main__':
             args.rasinject or args.gpureset or args.setperfdeterminism or args.setslevel or args.setmlevel or \
             args.setvc or args.setsrange or args.setmrange or args.setclock:
         relaunchAsSudo()
+
+    if args.showevents is not None:
+        for event in args.showevents:
+            if event.replace(',', '').upper() not in ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_PRE_RESET', 'GPU_POST_RESET']:
+                relaunchAsSudo()
 
     # If there is one or more device specified, use that for all commands, otherwise use a
     # list of all available devices. Also use "is not None" as device 0 would
