@@ -109,12 +109,12 @@ install(FILES ${COMMON_SRC_ROOT}/oam/include/oam/oam_mapi.h
                                         DESTINATION oam/include/oam)
 
 # Generate Doxygen documentation
-if (DOXYGEN_FOUND)
+if (ROCM_SMI_BUILD_DOCS)
   configure_file(${OAM_DOCS_DIR}/docs/rsmi_doxygen.cfg
                                    ${OAM_DOCS_DIR}/Doxyfile @ONLY)
   add_custom_target(doc
          ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
           COMMENT "Generating AMD OAM API documentation with Doxygen" VERBATIM)
-endif(DOXYGEN_FOUND)
+endif(ROCM_SMI_BUILD_DOCS)
 

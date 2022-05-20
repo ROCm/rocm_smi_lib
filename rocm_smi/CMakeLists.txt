@@ -149,34 +149,28 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/bindings_link
 
 
 # Generate Doxygen documentation
-find_package(Doxygen)
-find_package(LATEX COMPONENTS PDFLATEX)
-
-if (DOXYGEN_FOUND AND LATEX_FOUND)
+if (ROCM_SMI_BUILD_DOCS)
   set (RSMI_MANUAL_NAME "ROCm_SMI_Manual")
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/amd_smi_doxygen.cfg
-                                   ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+                 ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.tex
         COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/docs/amd_smi_doxygen.cfg
                 "${COMMON_INC_DIR}/rocm_smi.h"
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
-         COMMAND make  > /dev/null
-         COMMAND cp  ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
+        COMMAND make  > /dev/null
+        COMMAND cp  ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
                   ${CMAKE_CURRENT_SOURCE_DIR}/docs/${RSMI_MANUAL_NAME}_new.pdf
-         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.tex
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/latex)
+        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.tex
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/latex)
 
   add_custom_target(docs DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf)
 
   add_dependencies(${ROCM_SMI_TARGET} docs)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
-                         DESTINATION ${ROCM_SMI}/docs/${RSMI_MANUAL_NAME}.pdf)
+          DESTINATION ${ROCM_SMI}/docs/${RSMI_MANUAL_NAME}.pdf)
   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../README.md
-                          DESTINATION ${ROCM_SMI}/docs/)
-else()
-  message("Doxygen or Latex is not found. Will not generate documents.")
-endif(DOXYGEN_FOUND AND LATEX_FOUND)
-
+          DESTINATION ${ROCM_SMI}/docs/)
+endif(ROCM_SMI_BUILD_DOCS)
