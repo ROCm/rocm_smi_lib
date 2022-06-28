@@ -66,7 +66,7 @@ def driverInitialized():
     """
     driverInitialized = ''
     try:
-        driverInitialized = str(subprocess.check_output("cat /proc/modules|grep amdgpu", shell=True))
+        driverInitialized = str(subprocess.check_output("cat /sys/module/amdgpu/initstate |grep live", shell=True))
     except subprocess.CalledProcessError:
         pass
     if len(driverInitialized) > 0:
@@ -96,8 +96,33 @@ def formatCsv(deviceList):
     """ Print out the JSON_DATA in CSV format """
     global JSON_DATA
     jsondata = json.dumps(JSON_DATA)
-
-    header = ['device']
+    outstr = jsondata
+    # Check if the first json data element is 'system' or 'device'
+    outputType = outstr[outstr.find('\"')+1:]
+    outputType = outputType[:outputType.find('\"')]
+    header = []
+    my_string = ''
+    if outputType != 'system':
+        header.append('device')
+    else:
+        header.append('system')
+    if outputType == 'system':
+        jsonobj = json.loads(jsondata)
+        keylist = header
+        for record in jsonobj:
+            my_string += str(record)
+            for key in keylist:
+                if key == 'system':
+                    tempstr = str(jsonobj[record])
+                    tempstr = tempstr[tempstr.find('\'')+1:]
+                    tempstr = tempstr[:tempstr.find('\'')]
+                    # Force output device type to 'system'
+                    my_string += ',%s\nsystem,%s' % (tempstr, jsonobj[record][tempstr])
+            my_string += '\n'
+        # Force output device type to 'system'
+        if my_string.startswith('system'):
+            my_string = 'device' + my_string[6:]
+        return my_string
     headerkeys = []
     # Separate device-specific information from system-level information
     for dev in deviceList:
@@ -110,7 +135,10 @@ def formatCsv(deviceList):
     if len(header) <= 1:
         return ''
     for dev in deviceList:
-        outStr += 'card%s,' % dev
+        if str(dev) != 'system':
+            outStr += 'card%s,' % dev
+        else:
+            outStr += 'system,'
         for val in headerkeys:
             try:
                 if str(dev) != 'system':
@@ -1392,10 +1420,6 @@ def showClocks(deviceList):
     for device in deviceList:
         for clk_type in sorted(rsmi_clk_names_dict):
             freq_list = []
-            if not os.path.isfile(
-                    os.path.join('/sys/class/drm', 'card%d' % (device), 'device', 'pp_dpm_%s' % clk_type)):
-                logging.debug('No clock file for %s on card%d' % (clk_type, device))
-                continue
             if rocmsmi.rsmi_dev_gpu_clk_freq_get(device, rsmi_clk_names_dict[clk_type], None) == 1:
                 ret = rocmsmi.rsmi_dev_gpu_clk_freq_get(device, rsmi_clk_names_dict[clk_type], byref(freq))
                 if rsmi_ret_ok(ret, device, clk_type, True):
@@ -1408,7 +1432,7 @@ def showClocks(deviceList):
                             printLog(device, str(x), str(fr))
                     printLog(device, '', None)
             else:
-                printErrLog(device, '%s frequency is unsupported' % (clk_type))
+                logging.debug('{} frequency is unsupported on device[{}]'.format(clk_type, device))
                 printLog(device, '', None)
         if rocmsmi.rsmi_dev_pci_bandwidth_get(device, None) == 1:
             ret = rocmsmi.rsmi_dev_pci_bandwidth_get(device, byref(bw))
@@ -1423,7 +1447,7 @@ def showClocks(deviceList):
                         printLog(device, str(x), str(fr))
                 printLog(device, '', None)
         else:
-            printErrLog(device, 'PCIe frequency is unsupported')
+            logging.debug('PCIe frequency is unsupported on device [{}]'.format(device))
             printLog(device, '', None)
         printLogSpacer(None, '-')  # divider between devices for better visibility
     printLogSpacer()
@@ -1448,6 +1472,9 @@ def showCurrentClocks(deviceList, clk_defined=None, concise=False):
                 ret = rocmsmi.rsmi_dev_gpu_clk_freq_get(device, rsmi_clk_names_dict[clk_defined], byref(freq))
                 if rsmi_ret_ok(ret, device, clk_defined, True):
                     levl = freq.current
+                    if levl >= freq.num_supported:
+                        printLog(device, '%s current clock frequency not found' % (clk_defined), None)
+                        continue
                     fr = freq.frequency[levl] / 1000000
                     if concise:  # in case function is used for concise output, no need to print.
                         return '{:.0f}Mhz'.format(fr)
@@ -1457,14 +1484,13 @@ def showCurrentClocks(deviceList, clk_defined=None, concise=False):
 
         else:  # if clk is not defined, will display all current clk
             for clk_type in sorted(rsmi_clk_names_dict):
-                if not os.path.isfile(
-                        os.path.join('/sys/class/drm', 'card%d' % (device), 'device', 'pp_dpm_%s' % clk_type)):
-                    logging.debug('No clock file for %s on card%d' % (clk_type, device))
-                    continue
                 if rocmsmi.rsmi_dev_gpu_clk_freq_get(device, rsmi_clk_names_dict[clk_type], None) == 1:
                     ret = rocmsmi.rsmi_dev_gpu_clk_freq_get(device, rsmi_clk_names_dict[clk_type], byref(freq))
                     if rsmi_ret_ok(ret, device, clk_type, True):
                         levl = freq.current
+                        if levl >= freq.num_supported:
+                            printLog(device, '%s current clock frequency not found' % (clk_type), None)
+                            continue
                         fr = freq.frequency[levl] / 1000000
                         if PRINT_JSON:
                             printLog(device, '%s clock speed:' % (clk_type), '(%sMhz)' % (str(fr)[:-2]))
@@ -1472,17 +1498,20 @@ def showCurrentClocks(deviceList, clk_defined=None, concise=False):
                         else:
                             printLog(device, '%s clock level: %s' % (clk_type, levl), '(%sMhz)' % (str(fr)[:-2]))
                 else:
-                    printErrLog(device, '%s clock is unsupported' % (clk_type))
+                    logging.debug('{} clock is unsupported on device[{}]'.format(clk_type, device))
             # pcie clocks
             if rocmsmi.rsmi_dev_pci_bandwidth_get(device, None) == 1:
                 ret = rocmsmi.rsmi_dev_pci_bandwidth_get(device, byref(bw))
                 if rsmi_ret_ok(ret, device, 'PCIe', True):
                     current_f = bw.transfer_rate.current
+                    if current_f >= bw.transfer_rate.num_supported:
+                        printLog(device, 'PCIe current clock frequency not found', None )
+                        continue
                     fr = '{:.1f}GT/s x{}'.format(bw.transfer_rate.frequency[current_f] / 1000000000,
                                                  bw.lanes[current_f])
                     printLog(device, 'pcie clock level', '{} ({})'.format(current_f, fr))
             else:
-                printErrLog(device, 'PCIe clock is unsupported')
+                logging.debug('PCIe clock is unsupported on device[{}]'.format(device))
     printLogSpacer()
 
 

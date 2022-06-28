@@ -183,6 +183,7 @@ static uint32_t ConstructBDFID(std::string path, uint64_t *bdfid) {
   assert(bdfid != nullptr);
   char tpath[256] = {'\0'};
   ssize_t ret;
+  memset(tpath,0,256);
 
   ret = readlink(path.c_str(), tpath, 256);
 
@@ -373,6 +374,10 @@ void RocmSMI::GetEnvVariables(void) {
   env_vars_.enum_override = GetEnvVarUInteger("RSMI_DEBUG_ENUM_OVERRIDE");
   env_vars_.debug_inf_loop = GetEnvVarUInteger("RSMI_DEBUG_INFINITE_LOOP");
 #endif
+}
+
+const RocmSMI_env_vars& RocmSMI::getEnv(void) {
+  return env_vars_;
 }
 
 std::shared_ptr<Monitor>
