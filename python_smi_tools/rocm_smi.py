@@ -2662,7 +2662,7 @@ def initializeRsmi():
             exit(ret_init)
     else:
         logging.error('Driver not initialized (amdgpu not found in modules)')
-        exit(0)
+        exit(1)
 
 
 def isAmdDevice(device):
