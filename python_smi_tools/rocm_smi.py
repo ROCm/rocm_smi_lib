@@ -2585,7 +2585,7 @@ def showNodesBw(deviceList):
             printTableRow('%-12s', gpu_links_type[gpu1][gpu2])
         printEmptyLine()
     printLog(None,"Format: min-max; Units: mps", None)
-    printLog(None,'"0-0" min-max bandwidth indicates devices are not connected dirrectly', None)
+    printLog(None,'"0-0" min-max bandwidth indicates devices are not connected directly', None)
 
 
 def checkAmdGpus(deviceList):
