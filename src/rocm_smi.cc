@@ -864,6 +864,33 @@ rsmi_dev_overdrive_level_get(uint32_t dv_ind, uint32_t *od) {
 }
 
 rsmi_status_t
+rsmi_dev_mem_overdrive_level_get(uint32_t dv_ind, uint32_t *od) {
+  TRY
+  std::string val_str;
+  CHK_SUPPORT_NAME_ONLY(od)
+  DEVICE_MUTEX
+
+  rsmi_status_t ret = get_dev_value_str(amd::smi::kDevMemOverDriveLevel, dv_ind,
+                                                                    &val_str);
+  if (ret != RSMI_STATUS_SUCCESS) {
+    return ret;
+  }
+
+  errno = 0;
+  uint64_t val_ul = strtoul(val_str.c_str(), nullptr, 10);
+
+  if (val_ul > 0xFFFFFFFF) {
+    return RSMI_STATUS_UNEXPECTED_SIZE;
+  }
+
+  *od = static_cast<uint32_t>(val_ul);
+  assert(errno == 0);
+
+  return RSMI_STATUS_SUCCESS;
+  CATCH
+}
+
+rsmi_status_t
 rsmi_dev_overdrive_level_set(int32_t dv_ind, uint32_t od) {
   if (dv_ind < 0) {
     return RSMI_STATUS_INVALID_ARGS;
@@ -3463,7 +3490,7 @@ rsmi_topo_get_link_weight(uint32_t dv_ind_src, uint32_t dv_ind_dst,
         assert(false);  // Unexpected IO Link type read
         status = RSMI_STATUS_NOT_SUPPORTED;
       }
-    } else {
+    } else if (kfd_node->numa_node_type() == amd::smi::IOLINK_TYPE_PCIEXPRESS) {
       *weight = kfd_node->numa_node_weight();  // from src GPU to it's CPU node
       uint64_t numa_weight_dst = 0;
       status = topo_get_numa_node_weight(dv_ind_dst, &numa_weight_dst);
@@ -3495,6 +3522,8 @@ rsmi_topo_get_link_weight(uint32_t dv_ind_src, uint32_t dv_ind_dst,
         assert(false);  // Error to read numa node weight
         status = RSMI_STATUS_INIT_ERROR;
       }
+    } else {
+      status = RSMI_STATUS_NOT_SUPPORTED;
     }
   } else {
     status = RSMI_STATUS_INVALID_ARGS;
@@ -3570,7 +3599,7 @@ rsmi_topo_get_link_type(uint32_t dv_ind_src, uint32_t dv_ind_dst,
   if (ret == 0) {
     amd::smi::IO_LINK_TYPE io_link_type;
     ret = kfd_node->get_io_link_type(node_ind_dst, &io_link_type);
-    if (!ret) {
+    if (ret == 0) {
       if (io_link_type == amd::smi::IOLINK_TYPE_XGMI) {
         *type = RSMI_IOLINK_TYPE_XGMI;
         *hops = 1;
@@ -3579,7 +3608,7 @@ rsmi_topo_get_link_type(uint32_t dv_ind_src, uint32_t dv_ind_dst,
         assert(false);  // Unexpected IO Link type read
         status = RSMI_STATUS_NOT_SUPPORTED;
       }
-    } else {
+    } else if (kfd_node->numa_node_type() == amd::smi::IOLINK_TYPE_PCIEXPRESS) {
       uint32_t numa_number_dst;
       status = topo_get_numa_node_number(dv_ind_dst, &numa_number_dst);
       if (status == RSMI_STATUS_SUCCESS) {
@@ -3595,21 +3624,14 @@ rsmi_topo_get_link_type(uint32_t dv_ind_src, uint32_t dv_ind_dst,
           else
             *hops = 4;  // More than one CPU hops, hard coded as 4
         }
-
-        amd::smi::IO_LINK_TYPE numa_node_type = kfd_node->numa_node_type();
-        if (numa_node_type == amd::smi::IOLINK_TYPE_PCIEXPRESS) {
-          *type = RSMI_IOLINK_TYPE_PCIEXPRESS;
-          status = RSMI_STATUS_SUCCESS;
-        } else if (numa_node_type == amd::smi::IOLINK_TYPE_XGMI) {
-          *type = RSMI_IOLINK_TYPE_XGMI;
-          status = RSMI_STATUS_SUCCESS;
-        } else {
-          status = RSMI_STATUS_INIT_ERROR;
-        }
+        *type = RSMI_IOLINK_TYPE_PCIEXPRESS;
+        status = RSMI_STATUS_SUCCESS;
       } else {
         assert(false);  // Error to get numa node number
         status = RSMI_STATUS_INIT_ERROR;
       }
+    } else {
+      status = RSMI_STATUS_NOT_SUPPORTED;
     }
   } else {
     status = RSMI_STATUS_INVALID_ARGS;
@@ -3702,6 +3724,7 @@ rsmi_dev_supported_func_iterator_open(uint32_t dv_ind,
   (*handle)->id_type = FUNC_ITER;
 
   if (dev->supported_funcs()->begin() == dev->supported_funcs()->end()) {
+    delete *handle;
     return RSMI_STATUS_NO_DATA;
   } else {
     SupportedFuncMapIt *supp_func_iter = new SupportedFuncMapIt;
@@ -3754,6 +3777,7 @@ rsmi_dev_supported_variant_iterator_open(
       var_map_container = (*func_iter)->second;
 
       if (var_map_container == nullptr) {
+        delete *var_iter;
         return RSMI_STATUS_NO_DATA;
       }
 
@@ -3771,6 +3795,7 @@ rsmi_dev_supported_variant_iterator_open(
       sub_var_map_container = (*variant_itr)->second;
 
       if (sub_var_map_container == nullptr) {
+        delete *var_iter;
         return RSMI_STATUS_NO_DATA;
       }
 
@@ -3808,8 +3833,8 @@ rsmi_dev_supported_func_iterator_close(rsmi_func_id_iter_handle_t *handle) {
                     reinterpret_cast<VariantMapIt *>((*handle)->func_id_iter);
     delete var_iter;
   }  else if ((*handle)->id_type == SUBVARIANT_ITER) {
-    SubVariant *subvar_iter =
-                      reinterpret_cast<SubVariant *>((*handle)->func_id_iter);
+    SubVariantIt *subvar_iter =
+                      reinterpret_cast<SubVariantIt *>((*handle)->func_id_iter);
     delete subvar_iter;
   } else {
     return RSMI_STATUS_INVALID_ARGS;
@@ -3884,7 +3909,6 @@ rsmi_func_iter_next(rsmi_func_id_iter_handle_t handle) {
 
       if (*func_iter ==
          reinterpret_cast<SupportedFuncMap *>(handle->container_ptr)->end()) {
-        handle->func_id_iter = 0;
         return RSMI_STATUS_NO_DATA;
       }
       break;
@@ -3894,7 +3918,6 @@ rsmi_func_iter_next(rsmi_func_id_iter_handle_t handle) {
       (*var_iter)++;
       if (*var_iter ==
                reinterpret_cast<VariantMap *>(handle->container_ptr)->end()) {
-        handle->func_id_iter = 0;
         return RSMI_STATUS_NO_DATA;
       }
       break;
@@ -3904,7 +3927,6 @@ rsmi_func_iter_next(rsmi_func_id_iter_handle_t handle) {
       (*sub_var_iter)++;
       if (*sub_var_iter ==
                reinterpret_cast<SubVariant *>(handle->container_ptr)->end()) {
-        handle->func_id_iter = 0;
         return RSMI_STATUS_NO_DATA;
       }
       break;

@@ -2226,8 +2226,8 @@ rsmi_status_t rsmi_dev_perf_level_get(uint32_t dv_ind,
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  *
  */
-
 rsmi_status_t rsmi_perf_determinism_mode_set(uint32_t dv_ind, uint64_t clkvalue);
+
 /**
  *  @brief Get the overdrive percent associated with the device with provided
  *  device index.
@@ -2251,8 +2251,32 @@ rsmi_status_t rsmi_perf_determinism_mode_set(uint32_t dv_ind, uint64_t clkvalue)
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  *
  */
-
 rsmi_status_t rsmi_dev_overdrive_level_get(uint32_t dv_ind, uint32_t *od);
+
+/**
+ *  @brief Get the memory clock overdrive percent associated with the device
+ *  with provided device index.
+ *
+ *  @details Given a device index @p dv_ind and a pointer to a uint32_t @p od,
+ *  this function will write the memory overdrive percentage to the uint32_t
+ *  pointed to by @p od
+ *
+ *  @param[in] dv_ind a device index
+ *
+ *  @param[inout] od a pointer to uint32_t to which the overdrive percentage
+ *  will be written
+ *  If this parameter is nullptr, this function will return
+ *  ::RSMI_STATUS_INVALID_ARGS if the function is supported with the provided,
+ *  arguments and ::RSMI_STATUS_NOT_SUPPORTED if it is not supported with the
+ *  provided arguments.
+ *
+ *  @retval ::RSMI_STATUS_SUCCESS call was successful
+ *  @retval ::RSMI_STATUS_NOT_SUPPORTED installed software or hardware does not
+ *  support this function with the given arguments
+ *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
+ *
+ */
+rsmi_status_t rsmi_dev_mem_overdrive_level_get(uint32_t dv_ind, uint32_t *od);
 
 /**
  *  @brief Get the list of possible system clock speeds of device for a
