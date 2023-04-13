@@ -1802,9 +1802,15 @@ def showMemUse(deviceList):
     memoryUse = c_uint64()
     printLogSpacer(' Current Memory Use ')
     for device in deviceList:
-        ret = rocmsmi.rsmi_dev_memory_busy_percent_get(device, byref(memoryUse))
-        if rsmi_ret_ok(ret, device, '% memory use'):
-            printLog(device, 'GPU memory use (%)', memoryUse.value)
+        memInfo = getMemInfo(device, 'vram')
+        if memInfo[0] == None or memInfo[1] == None:
+            ret = 'N/A'
+        else:
+            ret = str((100 * (float(memInfo[0]) / float(memInfo[1]))))
+
+        printLog(device, 'GPU memory use (%)', ret)
+        printLog(device, 'GPU memory use', memInfo[0])
+        printLog(device, 'GPU memory available', memInfo[1])
         util_counters = getCoarseGrainUtil(device, "Memory Activity")
         if util_counters != -1:
             for ut_counter in util_counters:
