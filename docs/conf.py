@@ -6,7 +6,7 @@
 
 from rocm_docs import ROCmDocs
 
-docs_core = ROCmDocs("ROCm SMI")
+docs_core = ROCmDocs("ROCm SMI LIB")
 docs_core.setup()
 docs_core.run_doxygen('.', '.')
 docs_core.enable_api_reference()
