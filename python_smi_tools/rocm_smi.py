@@ -779,7 +779,7 @@ def resetPerfDeterminism(deviceList):
         if rsmi_ret_ok(ret, device, 'disable performance determinism'):
             printLog(device, 'Successfully disabled performance determinism', None)
         else:
-            logging.error('GPU[%s]\t\t: Unable to diable performance determinism', device)
+            logging.error('GPU[%s]\t\t: Unable to disable performance determinism', device)
     printLogSpacer()
 
 
@@ -1324,6 +1324,37 @@ def setProfile(deviceList, profile):
         printLogSpacer()
 
 
+def setComputePartition(deviceList, computePartitionType):
+    """ Sets compute partitioning for a list of device
+
+    @param deviceList: List of DRM devices (can be a single-item list)
+    @param computePartition: Compute Partition type to set as
+    """
+    printLogSpacer(' Set compute partition to %s ' % (str(computePartitionType).upper()))
+    for device in deviceList:
+        computePartitionType = computePartitionType.upper()
+        if computePartitionType not in compute_partition_type_l:
+            printErrLog(device, 'Invalid compute partition type %s'
+                        '\nValid compute partition types are %s'
+                        % ( computePartitionType.upper(),
+                        (', '.join(map(str, compute_partition_type_l))) ))
+            return (None, None)
+        ret = rocmsmi.rsmi_dev_compute_partition_set(device,
+                rsmi_compute_partition_type_dict[computePartitionType])
+        if rsmi_ret_ok(ret, device, silent=True):
+            printLog(device,
+                'Successfully set compute partition to %s' % (computePartitionType),
+                None)
+        elif ret == rsmi_status_t.RSMI_STATUS_PERMISSION:
+            printLog(device, 'Permission denied', None)
+        elif ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
+            printLog(device, 'Not supported on the given system', None)
+        else:
+            rsmi_ret_ok(ret, device)
+            printErrLog(device, 'Failed to retrieve compute partition, even though device supports it.')
+    printLogSpacer()
+
+
 def showAllConcise(deviceList):
     """ Display critical info for all devices in a concise format
 
@@ -1334,7 +1365,7 @@ def showAllConcise(deviceList):
         print('ERROR: Cannot print JSON/CSV output for concise output')
         sys.exit(1)
     printLogSpacer(' Concise Info ')
-    header = ['GPU', 'Temp', 'AvgPwr', 'SCLK', 'MCLK', 'Fan', 'Perf', 'PwrCap', 'VRAM%', 'GPU%']
+    header = ['GPU', 'Temp (DieEdge)', 'AvgPwr', 'SCLK', 'MCLK', 'Fan', 'Perf', 'PwrCap', 'VRAM%', 'GPU%']
     head_widths = [len(head) + 2 for head in header]
     values = {}
     for device in deviceList:
@@ -2052,9 +2083,14 @@ def showProductName(deviceList):
             # Retrieve the device SKU as a substring from VBIOS
             ret = rocmsmi.rsmi_dev_vbios_version_get(device, vbios, 256)
             if rsmi_ret_ok(ret, device) and vbios.value.decode():
-                # Device SKU is just 6 characters after the first occurance of '-' in vbios_version
-                device_sku = vbios.value.decode().split('-')[1][:6]
-            printLog(device, 'Card SKU', '\t\t' + device_sku)
+                # Device SKU is just the characters in between the two '-' in vbios_version
+                if vbios.value.decode().count('-') == 2 and len(str(vbios.value.decode().split('-')[1])) > 1:
+                    device_sku = vbios.value.decode().split('-')[1]
+                else:
+                    device_sku = 'unknown'
+                printLog(device, 'Card SKU', '\t\t' + device_sku)
+            else:
+                printErrLog(device, "Unable to decode VBIOS value for device SKU")
         else:
             printLog(device, 'Incompatible device.\n' \
                              'GPU[%s]\t\t: Expected vendor name: Advanced Micro Devices, Inc. [AMD/ATI]\n' \
@@ -2165,7 +2201,7 @@ def showRasInfo(deviceList, rasType):
                         row.append(ec.correctable_err)
                         row.append(ec.uncorrectable_err)
                 data.append(row)
-        printTableLog(['         Block', '     Status  ', 'uncorrectable err', 'correctable err'], data, device,
+        printTableLog(['         Block', '     Status  ', 'Correctable Error', 'Uncorrectable Error'], data, device,
                       'RAS INFO')
         # TODO: Use dynamic spacing for column widths
         printLogSpacer(None, '_')
@@ -2306,6 +2342,101 @@ def showEvents(deviceList, eventTypes):
                     printErrLog(device, 'Unable to end event notifications.')
             print('\r')
             break
+
+
+def printTempGraph(deviceList, delay):
+    # deviceList must be in ascending order
+    deviceList.sort()
+    devices = 0
+    # Print an empty line for each device
+    for device in deviceList:
+        devices = devices + 1
+    for i in range(devices):
+        printEmptyLine()
+    originalTerminalWidth = os.get_terminal_size()[0]
+    while 1:  # Exit condition from user keyboard input of 'q' or 'ctrl + c'
+        printString = ''
+        for device in deviceList:
+            temp = getTemp(device, 'edge')
+            percentage = temp
+            if percentage >= 100:
+                percentage = 100
+            if percentage < 0:
+                percentage = 0
+            # Get available space based on terminal width
+            terminalWidth = os.get_terminal_size()[0]
+            availableSpace = 0
+            if terminalWidth >= 20:
+                availableSpace = terminalWidth - 20
+            # Get color based on percentage, with a non-linear scaling
+            color = getGraphColor(3.16*(percentage**1.5)**(1/2))
+            # Get graph length based on percentage and available space
+            padding = (percentage / float(100)) * availableSpace
+            if padding > availableSpace:
+                padding = availableSpace
+            paddingSpace = color[-1]
+            for i in range(int(padding)):
+                paddingSpace += paddingSpace[-1]
+            remainder = 0
+            if availableSpace >= padding:
+                remainder = availableSpace + 1 - padding
+            remainderSpace = ' ' * int(remainder)
+            # TODO: Allow terminal size to be decreased
+            if terminalWidth < originalTerminalWidth:
+                print('Terminal size cannot be decreased.\n\r')
+                return
+            # Two spare Spaces
+            tempString = (str(int(temp)) + '°C').ljust(5)
+            printString += '\033[2;30;47mGPU[%d] Temp %s|%s%s\x1b[0m%s\r\n' % (device, tempString, color, paddingSpace[1:], remainderSpace)
+            originalTerminalWidth = terminalWidth
+            time.sleep((delay / 1000))
+        if terminalWidth >= 20:
+            for i in range(devices):
+                printString = '\033[A' + printString
+            print(printString, end = '\r')
+
+
+def getGraphColor(percentage):
+    # Text / Background color mixing (Tested on PuTTY)
+    colors = ['\033[2;35;45m','\033[2;34;45m','\033[2;35;44m','\033[2;34;44m',
+              '\033[2;36;44m','\033[2;34;46m','\033[2;36;46m','\033[2;32;46m',
+              '\033[2;36;42m','\033[2;32;42m','\033[2;33;42m','\033[2;32;43m',
+              '\033[2;33;43m','\033[2;31;43m','\033[2;33;41m','\033[2;31;41m']
+    characters = [' ', '░', '░', '▒', '▒', '░']
+    # Ensure percentage is in range and rounded
+    if percentage > 99:
+        percentage = 99
+    if percentage < 0:
+        percentage = 0
+    percentage = round(percentage, 0)
+    # There are a total of 16 distinct colors, with 2 special ascii characters per
+    # color, for a total of 16*2=32 distinct colors for a gradient.
+    # Therefore every 100/32=3.125 percent the color gradient will change
+    stepSize = (100/len(colors))/2
+    characterIndex = int((percentage % (len(characters) * stepSize)) / stepSize)
+    colorIndex = int(percentage / (stepSize * 2))
+    returnStr = colors[colorIndex] + characters[characterIndex]
+    return returnStr
+
+
+def showTempGraph(deviceList):
+    printLogSpacer(' Temperature Graph ')
+    # Start a thread for constantly printing
+    try:
+        # Create a thread (call print function, devices, delay in ms)
+        _thread.start_new_thread(printTempGraph, (deviceList, 150))
+    except Exception as e:
+        printErrLog(device, 'Unable to start new thread. %s' % (e))
+    # Catch user input for program termination
+    while 1:  # Exit condition from user keyboard input of 'q' or 'ctrl + c'
+        getch = _Getch()
+        user_input = getch()
+        # Catch user input for q or Ctrl + c
+        if user_input == 'q' or user_input == '\x03':
+            break
+    # Reset color to default before exit
+    print('\033[A\x1b[0m\r')
+    printLogSpacer()
 
 
 def showVersion(deviceList, component):
@@ -2653,6 +2784,24 @@ def showNodesBw(deviceList):
     if nonXgmi:
         printLog(None,"Non-xGMI links detected and is currently not supported", None)
 
+def showComputePartition(deviceList):
+    """ Returns the current compute partitioning for a list of devices
+
+    @param deviceList: List of DRM devices (can be a single-item list)
+    """
+    currentComputePartition = create_string_buffer(256)
+    printLogSpacer(' Current Compute Partition ')
+    for device in deviceList:
+        ret = rocmsmi.rsmi_dev_compute_partition_get(device, currentComputePartition, 256)
+        if rsmi_ret_ok(ret, device, silent=True) and currentComputePartition.value.decode():
+            printLog(device, 'Compute Partition', currentComputePartition.value.decode())
+        elif ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
+            printLog(device, 'Not supported on the given system', None)
+        else:
+            rsmi_ret_ok(ret, device)
+            printErrLog(device, 'Failed to retrieve compute partition, even though device supports it.', None)
+    printLogSpacer()
+
 def checkAmdGpus(deviceList):
     """ Check if there are any AMD GPUs being queried,
     return False if there are none
@@ -2826,6 +2975,8 @@ def relaunchAsSudo():
     """
     if os.geteuid() != 0:
         os.execvp('sudo', ['sudo'] + sys.argv)
+        #keeping below, if we want to run sudo with user's env variables
+        #os.execvp('sudo', ['sudo', '-E'] + sys.argv)
 
 
 def rsmi_ret_ok(my_ret, device=None, metric=None, silent=False):
@@ -2856,7 +3007,6 @@ def rsmi_ret_ok(my_ret, device=None, metric=None, silent=False):
         RETCODE = my_ret
         return False
     return True
-
 
 def save(deviceList, savefilepath):
     """ Save clock frequencies and fan speeds for a list of devices to a specified file path.
@@ -2942,6 +3092,7 @@ if __name__ == '__main__':
     groupDisplayTop.add_argument('-v', '--showvbios', help='Show VBIOS version', action='store_true')
     groupDisplayTop.add_argument('-e', '--showevents', help='Show event list', metavar='EVENT', type=str, nargs='*')
     groupDisplayTop.add_argument('--showdriverversion', help='Show kernel driver version', action='store_true')
+    groupDisplayTop.add_argument('--showtempgraph', help='Show Temperature Graph', action='store_true')
     groupDisplayTop.add_argument('--showfwinfo', help='Show FW information', metavar='BLOCK', type=str, nargs='*')
     groupDisplayTop.add_argument('--showmclkrange', help='Show mclk range', action='store_true')
     groupDisplayTop.add_argument('--showmemvendor', help='Show GPU memory vendor', action='store_true')
@@ -2997,6 +3148,7 @@ if __name__ == '__main__':
     groupDisplay.add_argument('--showenergycounter', help='Energy accumulator that stores amount of energy consumed',
                               action='store_true')
     groupDisplay.add_argument('--shownodesbw', help='Shows the numa nodes ', action='store_true')
+    groupDisplay.add_argument('--showcomputepartition', help='Shows current compute partitioning ', action='store_true')
 
     groupActionReset.add_argument('-r', '--resetclocks', help='Reset clocks and OverDrive to default',
                                   action='store_true')
@@ -3041,6 +3193,10 @@ if __name__ == '__main__':
     groupAction.add_argument('--setperfdeterminism',
                              help='Set clock frequency limit to get minimal performance variation', type=int,
                              metavar='SCLK', nargs=1)
+    groupAction.add_argument('--setcomputepartition', help='Set compute partition',
+                             choices=compute_partition_type_l + [x.lower() for x in compute_partition_type_l],
+                             type=str, nargs=1
+                             )
     groupAction.add_argument('--rasenable', help='Enable RAS for specified block and error type', type=str, nargs=2,
                              metavar=('BLOCK', 'ERRTYPE'))
     groupAction.add_argument('--rasdisable', help='Disable RAS for specified block and error type', type=str, nargs=2,
@@ -3078,7 +3234,7 @@ if __name__ == '__main__':
             or args.resetclocks or args.setprofile or args.resetprofile or args.setoverdrive or args.setmemoverdrive \
             or args.setpoweroverdrive or args.resetpoweroverdrive or args.rasenable or args.rasdisable or \
             args.rasinject or args.gpureset or args.setperfdeterminism or args.setslevel or args.setmlevel or \
-            args.setvc or args.setsrange or args.setmrange or args.setclock:
+            args.setvc or args.setsrange or args.setmrange or args.setclock or args.setcomputepartition:
         relaunchAsSudo()
 
     # If there is one or more device specified, use that for all commands, otherwise use a
@@ -3140,6 +3296,7 @@ if __name__ == '__main__':
         args.showpidgpus = []
         args.showreplaycount = True
         args.showvc = True
+        args.showcomputepartition = True
 
         if not PRINT_JSON:
             args.showprofile = True
@@ -3167,6 +3324,8 @@ if __name__ == '__main__':
         showAllConciseHw(deviceList)
     if args.showdriverversion:
         showVersion(deviceList, rsmi_sw_component_t.RSMI_SW_COMP_DRIVER)
+    if args.showtempgraph:
+        showTempGraph(deviceList)
     if args.showid:
         showId(deviceList)
     if args.showuniqueid:
@@ -3266,6 +3425,8 @@ if __name__ == '__main__':
         showVoltageCurve(deviceList)
     if args.showenergycounter:
         showEnergy(deviceList)
+    if args.showcomputepartition:
+        showComputePartition(deviceList)
     if args.setclock:
         setClocks(deviceList, args.setclock[0], [int(args.setclock[1])])
     if args.setsclk:
@@ -3304,6 +3465,8 @@ if __name__ == '__main__':
         setClockRange(deviceList, 'mclk', args.setmrange[0], args.setmrange[1], args.autorespond)
     if args.setperfdeterminism:
         setPerfDeterminism(deviceList, args.setperfdeterminism[0])
+    if args.setcomputepartition:
+        setComputePartition(deviceList, args.setcomputepartition[0])
     if args.resetprofile:
         resetProfile(deviceList)
     if args.resetxgmierr:
