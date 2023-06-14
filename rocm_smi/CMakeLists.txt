@@ -107,6 +107,7 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL Release)
           POST_BUILD COMMAND ${CMAKE_STRIP} lib${ROCM_SMI_TARGET}.so.${SO_VERSION_STRING})
   endif()
 endif ()
+
 #file reorganization changes
 #rocm_smi.py moved to libexec/rocm_smi. so creating rocm-smi symlink
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -119,53 +120,28 @@ add_custom_target(link-rocm-smi ALL
 install(TARGETS ${ROCM_SMI_TARGET}
           EXPORT rocm_smiTargets
           LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-          COMPONENT ${ROCM_SMI_COMPONENT})
+          COMPONENT dev)
+install(TARGETS ${ROCM_SMI_TARGET}
+          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          COMPONENT asan)
 
 install(FILES ${COMMON_SRC_ROOT}/include/rocm_smi/rocm_smi.h
-                                        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi
+        COMPONENT dev)
 install(FILES ${COMMON_SRC_ROOT}/include/rocm_smi/${ROCM_SMI_TARGET}Config.h
-                                        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi)
+       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi
+       COMPONENT dev)
 install(FILES ${COMMON_SRC_ROOT}/include/rocm_smi/kfd_ioctl.h
-                                        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rocm_smi
+        COMPONENT dev)
 install(FILES ${COMMON_SRC_ROOT}/python_smi_tools/rsmiBindings.py
-                                        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/${ROCM_SMI})
+        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/${ROCM_SMI}
+        COMPONENT dev)
 install(FILES ${COMMON_SRC_ROOT}/python_smi_tools/rocm_smi.py
-       PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ
-                         GROUP_WRITE GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-                                        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/${ROCM_SMI})
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ
+        GROUP_WRITE GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/${ROCM_SMI}
+        COMPONENT dev)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/bin/rocm-smi
-                                        DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-# Generate Doxygen documentation
-find_package(Doxygen)
-find_package(LATEX COMPONENTS PDFLATEX)
-
-if (DOXYGEN_FOUND AND LATEX_FOUND)
-  set (RSMI_MANUAL_NAME "ROCm_SMI_Manual")
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/amd_smi_doxygen.cfg
-                                   ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.tex
-        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/docs/amd_smi_doxygen.cfg
-                "${COMMON_INC_DIR}/rocm_smi.h"
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
-         COMMAND make  > /dev/null
-         COMMAND cp  ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
-                  ${CMAKE_CURRENT_SOURCE_DIR}/docs/${RSMI_MANUAL_NAME}_new.pdf
-         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.tex
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/latex)
-
-  add_custom_target(docs DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf)
-
-  add_dependencies(${ROCM_SMI_TARGET} docs)
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/latex/refman.pdf
-                         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/${ROCM_SMI} RENAME ${RSMI_MANUAL_NAME}.pdf)
-  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../README.md
-                          DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/${ROCM_SMI}/)
-else()
-  message("Doxygen or Latex is not found. Will not generate documents.")
-endif(DOXYGEN_FOUND AND LATEX_FOUND)
-
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT dev)
