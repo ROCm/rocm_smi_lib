@@ -6,6 +6,8 @@
 
 from rocm_docs import ROCmDocs
 
+external_projects_current_project = "rocm_smi_lib"
+
 docs_core = ROCmDocs("ROCm SMI LIB")
 docs_core.run_doxygen(doxygen_root='.doxygen', doxygen_path='.')
 docs_core.enable_api_reference()
