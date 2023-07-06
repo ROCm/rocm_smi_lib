@@ -62,11 +62,18 @@ function(create_header_template)
 #ifndef @include_guard@
 #define @include_guard@
 
+#ifndef ROCM_HEADER_WRAPPER_WERROR
+#define ROCM_HEADER_WRAPPER_WERROR @deprecated_error@
+#endif
+#if ROCM_HEADER_WRAPPER_WERROR  /* ROCM_HEADER_WRAPPER_WERROR 1 */
+#error \"This file is deprecated. Use file from include path /opt/rocm-ver/include/ and prefix with @prefix_name@\"
+#else  /* ROCM_HEADER_WRAPPER_WERROR 0 */
 #if defined(__GNUC__)
 #warning \"This file is deprecated. Use file from include path /opt/rocm-ver/include/ and prefix with @prefix_name@\"
 #else
 #pragma message(\"This file is deprecated. Use file from include path /opt/rocm-ver/include/ and prefix with @prefix_name@\")
 #endif
+#endif  /* ROCM_HEADER_WRAPPER_WERROR */
 
 @include_statements@
 
@@ -177,9 +184,17 @@ endfunction()
 create_header_template()
 #Use template header file and generater wrapper header files
 generate_wrapper_header()
-install(DIRECTORY ${RSMI_WRAPPER_INC_DIR} DESTINATION ${ROCM_SMI}/include)
-install(DIRECTORY ${OAM_WRAPPER_INC_DIR} DESTINATION ${OAM_TARGET_NAME}/include)
+install(DIRECTORY ${RSMI_WRAPPER_INC_DIR}
+        DESTINATION ${ROCM_SMI}/include
+        COMPONENT dev)
+install(DIRECTORY ${OAM_WRAPPER_INC_DIR}
+        DESTINATION ${OAM_TARGET_NAME}/include
+        COMPONENT dev)
 # Create symlink to library files
 create_library_symlink()
-install(DIRECTORY ${RSMI_WRAPPER_LIB_DIR} DESTINATION ${ROCM_SMI} COMPONENT lib${ROCM_SMI})
-install(DIRECTORY ${OAM_WRAPPER_LIB_DIR} DESTINATION ${OAM_TARGET_NAME} COMPONENT lib${OAM_TARGET_NAME} )
+install(DIRECTORY ${RSMI_WRAPPER_LIB_DIR}
+        DESTINATION ${ROCM_SMI}
+        COMPONENT dev)
+install(DIRECTORY ${OAM_WRAPPER_LIB_DIR}
+        DESTINATION ${OAM_TARGET_NAME}
+        COMPONENT dev )

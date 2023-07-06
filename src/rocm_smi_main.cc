@@ -57,6 +57,7 @@
 #include <cerrno>
 #include <unordered_map>
 #include <iostream>
+#include <sstream>
 
 #include "rocm_smi/rocm_smi.h"
 #include "rocm_smi/rocm_smi_device.h"
@@ -74,7 +75,8 @@ static const char *kDeviceNamePrefix = "card";
 static const char *kAMDMonitorTypes[] = {"radeon", "amdgpu", ""};
 
 static const std::string amdSMI = "amd::smi::";
-const std::map<amd::smi::DevInfoTypes, std::string> amd::smi::RocmSMI::devInfoTypesStrings = {
+const std::map<amd::smi::DevInfoTypes, std::string>
+amd::smi::RocmSMI::devInfoTypesStrings = {
   {amd::smi::kDevPerfLevel, amdSMI + "kDevPerfLevel"},
   {amd::smi::kDevOverDriveLevel, amdSMI + "kDevOverDriveLevel"},
   {amd::smi::kDevMemOverDriveLevel, amdSMI + "kDevMemOverDriveLevel"},
@@ -141,7 +143,10 @@ const std::map<amd::smi::DevInfoTypes, std::string> amd::smi::RocmSMI::devInfoTy
   {amd::smi::kDevNumaNode, amdSMI + "kDevNumaNode"},
   {amd::smi::kDevGpuMetrics, amdSMI + "kDevGpuMetrics"},
   {amd::smi::kDevGpuReset, amdSMI + "kDevGpuReset"},
-  {amd::smi::kDevComputePartition, amdSMI + "kDevComputePartition"}
+  {amd::smi::kDevAvailableComputePartition, amdSMI +
+      "kDevAvailableComputePartition"},
+  {amd::smi::kDevComputePartition, amdSMI + "kDevComputePartition"},
+  {amd::smi::kDevMemoryPartition, amdSMI + "kDevMemoryPartition"}
 };
 
 namespace amd {
@@ -254,16 +259,17 @@ static bool bdfid_from_path(const std::string in_name, uint64_t *bdfid) {
 // 1 = not a good bdfid found
 static uint32_t ConstructBDFID(std::string path, uint64_t *bdfid) {
   assert(bdfid != nullptr);
-  char tpath[256] = {'\0'};
+  const unsigned int MAX_BDF_LENGTH = 512;
+  char tpath[MAX_BDF_LENGTH] = {'\0'};
   ssize_t ret;
-  memset(tpath,0,256);
+  memset(tpath,0,MAX_BDF_LENGTH);
 
-  ret = readlink(path.c_str(), tpath, 256);
+  ret = readlink(path.c_str(), tpath, MAX_BDF_LENGTH);
 
   assert(ret > 0);
-  assert(ret < 256);
+  assert(ret < MAX_BDF_LENGTH);
 
-  if (ret <= 0 || ret >= 256) {
+  if (ret <= 0 || ret >= MAX_BDF_LENGTH) {
     return 1;
   }
 
@@ -305,6 +311,8 @@ RocmSMI::Initialize(uint64_t flags) {
   euid_ = geteuid();
 
   GetEnvVariables();
+  // To help debug env variable issues
+  // printEnvVarInfo();
 
   while (env_vars_.debug_inf_loop) {}
 
@@ -369,6 +377,7 @@ RocmSMI::Initialize(uint64_t flags) {
   // 1. construct kfd_node_map_ with gpu_id as key and *Device as value
   // 2. for each kfd node, write the corresponding dv_ind
   // 3. for each amdgpu device, write the corresponding gpu_id
+  // 4. for each amdgpu device, attempt to store it's boot partition
   for (uint32_t dv_ind = 0; dv_ind < devices_.size(); ++dv_ind) {
     dev = devices_[dv_ind];
     uint64_t bdfid = dev->bdfid();
@@ -383,7 +392,12 @@ RocmSMI::Initialize(uint64_t flags) {
     uint64_t gpu_id = tmp_map[bdfid]->gpu_id();
     dev->set_kfd_gpu_id(gpu_id);
     kfd_node_map_[gpu_id] = tmp_map[bdfid];
+
+    // store each device boot partition state, if file doesn't exist
+    dev->storeDevicePartitions(dv_ind);
   }
+  // Leaving below to help debug temp file issues
+  // displayAppTmpFilesContent();
 }
 
 void
@@ -429,6 +443,31 @@ static uint32_t GetEnvVarUInteger(const char *ev_str) {
   return 0;
 }
 
+static std::unordered_set<uint32_t> GetEnvVarUIntegerSets(const char *ev_str) {
+  std::unordered_set<uint32_t> returnSet;
+#ifndef DEBUG
+  (void)ev_str;
+#else
+  ev_str = getenv(ev_str);
+  if(ev_str == nullptr) { return returnSet; }
+  std::string stringEnv = ev_str;
+
+  if (stringEnv.empty() == false) {
+    // parse out values by commas
+    std::string parsedVal;
+    std::istringstream ev_str_ss(stringEnv);
+
+    while (std::getline(ev_str_ss, parsedVal, ',')) {
+      int parsedInt = std::stoi(parsedVal);
+      assert(parsedInt >= 0);
+      uint32_t parsedUInt = static_cast<uint32_t>(parsedInt);
+      returnSet.insert(parsedUInt);
+    }
+  }
+#endif
+  return returnSet;
+}
+
 // Get and store env. variables in this method
 void RocmSMI::GetEnvVariables(void) {
 #ifndef DEBUG
@@ -437,20 +476,59 @@ void RocmSMI::GetEnvVariables(void) {
   env_vars_.path_DRM_root_override = nullptr;
   env_vars_.path_HWMon_root_override = nullptr;
   env_vars_.path_power_root_override = nullptr;
-  env_vars_.enum_override = 0;
   env_vars_.debug_inf_loop = 0;
+  env_vars_.enum_overrides.clear();
 #else
   env_vars_.debug_output_bitfield = GetEnvVarUInteger("RSMI_DEBUG_BITFIELD");
   env_vars_.path_DRM_root_override   = getenv("RSMI_DEBUG_DRM_ROOT_OVERRIDE");
   env_vars_.path_HWMon_root_override = getenv("RSMI_DEBUG_HWMON_ROOT_OVERRIDE");
   env_vars_.path_power_root_override = getenv("RSMI_DEBUG_PP_ROOT_OVERRIDE");
-  env_vars_.enum_override = GetEnvVarUInteger("RSMI_DEBUG_ENUM_OVERRIDE");
   env_vars_.debug_inf_loop = GetEnvVarUInteger("RSMI_DEBUG_INFINITE_LOOP");
+  env_vars_.enum_overrides = GetEnvVarUIntegerSets("RSMI_DEBUG_ENUM_OVERRIDE");
 #endif
 }
 
 const RocmSMI_env_vars& RocmSMI::getEnv(void) {
   return env_vars_;
+}
+
+void RocmSMI::printEnvVarInfo(void) {
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.debug_output_bitfield = "
+            << ((env_vars_.debug_output_bitfield == 0) ? "<undefined>"
+                : std::to_string(env_vars_.debug_output_bitfield))
+            << std::endl;
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.path_DRM_root_override = "
+            << ((env_vars_.path_DRM_root_override == nullptr)
+                ? "<undefined>" : env_vars_.path_DRM_root_override)
+            << std::endl;
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.path_HWMon_root_override = "
+            << ((env_vars_.path_HWMon_root_override == nullptr)
+                ? "<undefined>" : env_vars_.path_HWMon_root_override)
+            << std::endl;
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.path_power_root_override = "
+            << ((env_vars_.path_power_root_override == nullptr)
+                ? "<undefined>" : env_vars_.path_power_root_override)
+            << std::endl;
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.debug_inf_loop = "
+            << ((env_vars_.debug_inf_loop == 0) ? "<undefined>"
+                : std::to_string(env_vars_.debug_output_bitfield))
+            << std::endl;
+  std::cout << __PRETTY_FUNCTION__ << " | env_vars_.enum_overrides = {";
+  if (env_vars_.enum_overrides.empty()) {
+    std::cout << "}" << std::endl;
+    return;
+  }
+  for (auto it=env_vars_.enum_overrides.begin();
+       it != env_vars_.enum_overrides.end(); ++it) {
+    DevInfoTypes type = static_cast<DevInfoTypes>(*it);
+    std::cout << (std::to_string(*it) + " (" + devInfoTypesStrings.at(type)
+                  + ")");
+    auto temp_it = it;
+    if(++temp_it != env_vars_.enum_overrides.end()) {
+      std::cout << ", ";
+    }
+  }
+  std::cout << "}" << std::endl;
 }
 
 std::shared_ptr<Monitor>

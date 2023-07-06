@@ -48,6 +48,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 #include <stdint.h>
+
 #include <string>
 #include <map>
 #include <fstream>
@@ -121,7 +122,10 @@ static const char *kDevXGMIErrorFName = "xgmi_error";
 static const char *kDevSerialNumberFName = "serial_number";
 static const char *kDevNumaNodeFName = "numa_node";
 static const char *kDevGpuMetricsFName = "gpu_metrics";
+static const char *kDevAvailableComputePartitionFName =
+                  "available_compute_partition";
 static const char *kDevComputePartitionFName = "current_compute_partition";
+static const char *kDevMemoryPartitionFName = "current_memory_partition";
 
 // Firmware version files
 static const char *kDevFwVersionAsdFName = "fw_version/asd_fw_version";
@@ -291,7 +295,9 @@ static const std::map<DevInfoTypes, const char *> kDevAttribNameMap = {
     {kDevNumaNode, kDevNumaNodeFName},
     {kDevGpuMetrics, kDevGpuMetricsFName},
     {kDevGpuReset, kDevGpuResetFName},
+    {kDevAvailableComputePartition, kDevAvailableComputePartitionFName},
     {kDevComputePartition, kDevComputePartitionFName},
+    {kDevMemoryPartition, kDevMemoryPartitionFName},
 };
 
 static const std::map<rsmi_dev_perf_level, const char *> kDevPerfLvlMap = {
@@ -417,6 +423,8 @@ static const std::map<const char *, dev_depends_t> kDevFuncDependsMap = {
   {"rsmi_dev_gpu_reset",                 {{kDevGpuResetFName}, {}}},
   {"rsmi_dev_compute_partition_get",     {{kDevComputePartitionFName}, {}}},
   {"rsmi_dev_compute_partition_set",     {{kDevComputePartitionFName}, {}}},
+  {"rsmi_dev_memory_partition_get",      {{kDevMemoryPartitionFName}, {}}},
+  {"rsmi_dev_memory_partition_set",      {{kDevMemoryPartitionFName}, {}}},
 
   // These functions with variants, but no sensors/units. (May or may not
   // have mandatory dependencies.)
@@ -564,9 +572,9 @@ int Device::openSysfsFileStream(DevInfoTypes type, T *fs, const char *str) {
   auto sysfs_path = path_;
 
 #ifdef DEBUG
-  if (env_->path_DRM_root_override && type == env_->enum_override) {
+  if (env_->path_DRM_root_override
+      && (env_->enum_overrides.find(type) != env_->enum_overrides.end())) {
     sysfs_path = env_->path_DRM_root_override;
-
   }
 #endif
 
@@ -698,6 +706,7 @@ int Device::writeDevInfo(DevInfoTypes type, std::string val) {
     case kDevPowerODVoltage:
     case kDevSOCClk:
     case kDevComputePartition:
+    case kDevMemoryPartition:
       return writeDevInfoStr(type, val);
 
     default:
@@ -924,7 +933,9 @@ int Device::readDevInfo(DevInfoTypes type, std::string *val) {
     case kDevVBiosVer:
     case kDevPCIEThruPut:
     case kDevSerialNumber:
+    case kDevAvailableComputePartition:
     case kDevComputePartition:
+    case kDevMemoryPartition:
       return readDevInfoStr(type, val);
       break;
 
@@ -1100,6 +1111,166 @@ bool Device::DeviceAPISupported(std::string name, uint64_t variant,
   assert(false);  // We should not reach here
 
   return false;
+}
+
+rsmi_status_t Device::restartAMDGpuDriver(void) {
+  REQUIRE_ROOT_ACCESS
+  bool restartSuccessful = true;
+  bool success = false;
+  std::string out = "";
+  bool wasGdmServiceActive = false;
+
+  // sudo systemctl is-active gdm
+  // we do not care about the success of checking if gdm is active
+  std::tie(success, out) = executeCommand("systemctl is-active gdm");
+  (out == "active") ? (restartSuccessful &= success) :
+                         (restartSuccessful = true);
+
+  // if gdm is active -> sudo systemctl stop gdm
+  // TODO: are are there other display manager's we need to take into account?
+  // see https://en.wikipedia.org/wiki/GNOME_Display_Manager
+  if (success && (out == "active")) {
+    wasGdmServiceActive = true;
+    std::tie(success, out) = executeCommand("systemctl stop gdm&", false);
+    restartSuccessful &= success;
+  }
+
+  // sudo modprobe -r amdgpu
+  // sudo modprobe amdgpu
+  std::tie(success, out) =
+    executeCommand("modprobe -r amdgpu && modprobe amdgpu&", false);
+  restartSuccessful &= success;
+
+  // if gdm was active -> sudo systemctl start gdm
+  if (wasGdmServiceActive) {
+    std::tie(success, out) = executeCommand("systemctl start gdm&", false);
+    restartSuccessful &= success;
+  }
+
+  return (restartSuccessful ? RSMI_STATUS_SUCCESS :
+          RSMI_STATUS_AMDGPU_RESTART_ERR);
+}
+
+template <typename T> rsmi_status_t storeParameter(uint32_t dv_ind);
+
+// Stores parameters depending on which rsmi type is provided.
+// Uses template specialization, to restrict types to identify
+// calls needed to complete the function.
+// typename - restricted to
+// rsmi_compute_partition_type_t or rsmi_compute_partition_type_t
+// dv_ind - device index
+// tempFileName - base file name
+template <>
+rsmi_status_t storeParameter<rsmi_compute_partition_type_t>(uint32_t dv_ind) {
+  rsmi_status_t returnStatus = RSMI_STATUS_SUCCESS;
+  bool doesFileExist;
+  std::tie(doesFileExist, std::ignore) = readTmpFile(dv_ind, "boot",
+                                                     "compute_partition");
+  // if temporary file exists -> we do not need to store anything new
+  // if not, read & store the state value
+  if (doesFileExist) {
+    return returnStatus;
+  }
+  uint32_t length = 128;
+  char data[length];
+  rsmi_status_t ret = rsmi_dev_compute_partition_get(dv_ind, data, length);
+  rsmi_status_t storeRet;
+
+  if (ret == RSMI_STATUS_SUCCESS) {
+    storeRet = storeTmpFile(dv_ind, "compute_partition", "boot", data);
+  } else if (ret == RSMI_STATUS_NOT_SUPPORTED) {
+    // not supported is ok
+    storeRet = storeTmpFile(dv_ind, "compute_partition", "boot", "UNKNOWN");
+  } else {
+    storeRet = storeTmpFile(dv_ind, "compute_partition", "boot", "UNKNOWN");
+    returnStatus = ret;
+  }
+
+  if (storeRet != RSMI_STATUS_SUCCESS) {
+    // file storage err takes precedence over other errors
+    returnStatus = storeRet;
+  }
+  return returnStatus;
+}
+
+// Stores parameters depending on which rsmi type is provided.
+// Uses template specialization, to restrict types to identify
+// calls needed to complete the function.
+// typename - restricted to
+// rsmi_compute_partition_type_t or rsmi_compute_partition_type_t
+// dv_ind - device index
+// tempFileName - base file name
+template <> rsmi_status_t storeParameter<rsmi_nps_mode_type_t>(uint32_t dv_ind) {
+  rsmi_status_t returnStatus = RSMI_STATUS_SUCCESS;
+  uint32_t length = 128;
+  char data[length];
+  bool doesFileExist;
+  std::tie(doesFileExist, std::ignore) = readTmpFile(dv_ind, "boot",
+                                                     "nps_mode");
+  // if temporary file exists -> we do not need to store anything new
+  // if not, read & store the state value
+  if (doesFileExist) {
+    return returnStatus;
+  }
+  rsmi_status_t ret = rsmi_dev_nps_mode_get(dv_ind, data, length);
+  rsmi_status_t storeRet;
+
+  if (ret == RSMI_STATUS_SUCCESS) {
+    storeRet = storeTmpFile(dv_ind, "nps_mode", "boot", data);
+  } else if (ret == RSMI_STATUS_NOT_SUPPORTED) {
+    // not supported is ok
+    storeRet = storeTmpFile(dv_ind, "nps_mode", "boot", "UNKNOWN");
+  } else {
+    storeRet = storeTmpFile(dv_ind, "nps_mode", "boot", "UNKNOWN");
+    returnStatus = ret;
+  }
+
+  if (storeRet != RSMI_STATUS_SUCCESS) {
+    // file storage err takes precedence over other errors
+    returnStatus = storeRet;
+  }
+  return returnStatus;
+}
+
+rsmi_status_t Device::storeDevicePartitions(uint32_t dv_ind) {
+  rsmi_status_t returnStatus = RSMI_STATUS_SUCCESS;
+  returnStatus = storeParameter<rsmi_compute_partition_type_t>(dv_ind);
+  rsmi_status_t npsRet = storeParameter<rsmi_nps_mode_type_t>(dv_ind);
+  if (returnStatus == RSMI_STATUS_SUCCESS) { // only record earliest error
+    returnStatus = npsRet;
+  }
+  return returnStatus;
+}
+
+// Reads a device's boot partition state, depending on which rsmi type is
+// provided and device index.
+// Uses template specialization, to restrict types to identify
+// calls needed to complete the function.
+// typename - restricted to rsmi_compute_partition_type_t
+// or rsmi_compute_partition_type_t
+// dv_ind - device index
+template <>
+std::string Device::readBootPartitionState<rsmi_compute_partition_type_t>(
+    uint32_t dv_ind) {
+  std::string boot_state;
+  std::tie(std::ignore, boot_state) = readTmpFile(dv_ind, "boot",
+                                                  "compute_partition");
+  return boot_state;
+}
+
+// Reads a device's boot partition state, depending on which rsmi type is
+// provided and device index.
+// Uses template specialization, to restrict types to identify
+// calls needed to complete the function.
+// typename - restricted to rsmi_compute_partition_type_t
+// or rsmi_compute_partition_type_t
+// dv_ind - device index
+template <>
+std::string Device::readBootPartitionState<rsmi_nps_mode_type_t>(
+    uint32_t dv_ind) {
+  std::string boot_state;
+  std::tie(std::ignore, boot_state) = readTmpFile(dv_ind, "boot", "nps_mode");
+  return boot_state;
 }
 
 #undef RET_IF_NONZERO
