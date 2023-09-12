@@ -1092,10 +1092,6 @@ void Device::fillSupportedFuncs(void) {
   if (supported_funcs_.size() != 0) {
     return;
   }
-  if (monitor() == nullptr) {
-    return;
-  }
-
   std::map<const char *, dev_depends_t>::const_iterator it =
                                                    kDevFuncDependsMap.begin();
   std::string dev_rt = path_ + "/device";
@@ -1151,7 +1147,9 @@ void Device::fillSupportedFuncs(void) {
 
     it++;
   }
-  monitor()->fillSupportedFuncs(&supported_funcs_);
+  if (monitor() != nullptr) {
+    monitor()->fillSupportedFuncs(&supported_funcs_);
+  }
   // DumpSupportedFunctions();
 }
 
