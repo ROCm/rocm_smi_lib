@@ -199,6 +199,10 @@ Output options:
         low (Keep values low, regardless of workload)
         high (Keep values high, regardless of workload)
         manual (Only use values defined by --setsclk and --setmclk)
+        stable_std (set sclk and mclk to fixed value for profiling)
+        stable_peak (set sclk and mclk to maximum for profiling)
+        stable_min_mclk (set mclk to minimum for profiling)
+        stable_min_sclk (set sclk to minimum for profiling)
 
 --setoverdrive/--setmemoverdrive #:
     ***DEPRECATED IN NEWER KERNEL VERSIONS (use --setslevel/--setmlevel instead)***
