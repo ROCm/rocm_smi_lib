@@ -47,16 +47,12 @@ fastjsonschema==2.18.0
     # via rocm-docs-core
 gitdb==4.0.10
     # via gitpython
-gitpython==3.1.31
+gitpython==3.1.37
     # via rocm-docs-core
 idna==3.4
     # via requests
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==6.4.1
-    # via sphinx
-importlib-resources==5.10.4
-    # via rocm-docs-core
 jinja2==3.1.2
     # via
     #   myst-parser
