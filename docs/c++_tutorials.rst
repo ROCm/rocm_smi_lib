@@ -30,3 +30,6 @@ This chapter contains the ROCm SMI C++ API tutorials.
     return 0;
     }
 
+
+For more examples please check the `C++ example <https://github.com/ROCm/rocm_smi_lib/blob/develop/rocm_smi/example/rocm_smi_example.cc>`_
+or `tests <https://github.com/ROCm/rocm_smi_lib/tree/develop/tests/rocm_smi_test/functional>`_
