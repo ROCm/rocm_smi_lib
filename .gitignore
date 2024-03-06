@@ -30,3 +30,6 @@ README.html
 !.clang-format
 !.clang-tidy
 !.clangd
+
+# avoid duplicating contributing.md due to conf.py
+docs/CHANGELOG.md

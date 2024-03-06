@@ -26,3 +26,6 @@ subtrees:
 - caption: About
   entries:
   - file: license
+    title: License
+  - file: CHANGELOG
+    title: Changelog
