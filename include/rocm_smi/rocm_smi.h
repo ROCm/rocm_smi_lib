@@ -149,6 +149,7 @@ typedef enum {
                                          //!< information can be retrieved. By
                                          //!< default, only AMD devices are
                                          //!<  enumerated by RSMI.
+  RSMI_INIT_FLAG_THRAD_ONLY_MUTEX = 0x400000000000000,   //!< The mutex limit to thread
   RSMI_INIT_FLAG_RESRV_TEST1 = 0x800000000000000,  //!< Reserved for test
 } rsmi_init_flags_t;
 
@@ -1290,7 +1291,7 @@ rsmi_status_t rsmi_dev_revision_get(uint32_t dv_ind, uint16_t *revision);
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  *
  */
-rsmi_status_t rsmi_dev_sku_get(uint32_t dv_ind, char *sku);
+rsmi_status_t rsmi_dev_sku_get(uint32_t dv_ind, uint16_t *sku);
 
 /**
  *  @brief Get the device vendor id associated with the device with provided
