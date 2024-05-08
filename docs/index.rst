@@ -20,6 +20,7 @@ The ROCm System Management Interface Library, or ROCm SMI library, is part of th
     * :doc:`API library <../doxygen/html/files>`
     * :doc:`Functions <../doxygen/html/globals>`
     * :doc:`Data structures <../doxygen/html/annotated>`
+    * :doc:`Python API <./reference/python-api>`
 
   .. grid-item-card:: How to
 
