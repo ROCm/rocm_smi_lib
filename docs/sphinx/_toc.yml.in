@@ -10,10 +10,8 @@ subtrees:
   entries:
   - file: install/install
     title: Installing ROCm SMI
-  - file: install/build
-    title: Building ROCm SMI 
-
-- caption: How to Guide
+ 
+- caption: How to 
   entries:
   - file: c++_usage
     title: Use C++ in ROCm SMI 
