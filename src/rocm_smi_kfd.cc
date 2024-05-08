@@ -507,9 +507,7 @@ int GetProcessInfoForPID(uint32_t pid, rsmi_process_info_t *proc,
       // Collect count of compute units
       cu_count += kfd_node_map[gpu_id]->cu_count();
     } else {
-      //Some GFX revisions do not provide cu_occupancy debugfs method 
-      proc->cu_occupancy = CU_OCCUPANCY_INVALID;
-      cu_count = 0;
+      return err;
     }
   }
 
@@ -984,10 +982,11 @@ int KFDNode::get_gfx_target_version(uint64_t *gfx_target_version) {
   *gfx_target_version = gfx_version;
   ss << __PRETTY_FUNCTION__
      << " | File: " << properties_path
-     << " | Read node: " << std::to_string(this->node_indx_)
+     << " | Successfully read node #" << std::to_string(this->node_indx_)
      << " for gfx_target_version"
-     << " | Data (*gfx_target_version): "
+     << " | Data (gfx_target_version) *gfx_target_version = "
      << std::to_string(*gfx_target_version)
+<<<<<<< HEAD
      << " | Return: "
      << getRSMIStatusString(amd::smi::ErrnoToRsmiStatus(ret), false)
      << " | ";
@@ -1046,8 +1045,10 @@ int KFDNode::get_node_id(uint32_t *node_id) {
      << " | Data (*node_id): " << std::to_string(*node_id)
      << " | Return: "
      << getRSMIStatusString(amd::smi::ErrnoToRsmiStatus(ret), false)
+=======
+     << " | return = " << std::to_string(ret)
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
      << " | ";
-  *node_id = this->node_indx_;
   LOG_DEBUG(ss);
   return ret;
 }

@@ -287,7 +287,7 @@ def getGpuUse(device, silent=False):
     return -1
 
 
-def getDRMDeviceId(device, silent=False):
+def getId(device, silent=False):
     """ Return the hexadecimal value of a device's ID
 
     :param device: DRM device identifier
@@ -296,10 +296,8 @@ def getDRMDeviceId(device, silent=False):
     """
     dv_id = c_short()
     ret = rocmsmi.rsmi_dev_id_get(device, byref(dv_id))
-    device_id_ret = "N/A"
     if rsmi_ret_ok(ret, device, 'get_device_id', silent):
-        device_id_ret = hex(dv_id.value)
-    return device_id_ret
+        return hex(dv_id.value)
 
 
 def getRev(device, silent=False):
@@ -311,11 +309,10 @@ def getRev(device, silent=False):
     """
     dv_rev = c_short()
     ret = rocmsmi.rsmi_dev_revision_get(device, byref(dv_rev))
-    revision_ret = "N/A"
-    if rsmi_ret_ok(ret, device, 'get_device_rev', silent=silent):
-        revision_ret =  padHexValue(hex(dv_rev.value), 2)
-    return revision_ret
+    if rsmi_ret_ok(ret, device, 'get_device_rev', silent):
+        return hex(dv_rev.value)
 
+<<<<<<< HEAD
 def getSubsystemId(device, silent=False):
     """ Return the a device's subsystem id
 
@@ -408,6 +405,8 @@ def getDeviceName(device, silent=False):
     if rsmi_ret_ok(ret, device, 'get_name', silent=silent):
         device_name_ret = series.value.decode()
     return device_name_ret
+=======
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
 
 def getMaxPower(device, silent=False):
     """ Return the maximum power cap of a given device
@@ -683,12 +682,10 @@ def getVbiosVersion(device, silent=False):
     """
     vbios = create_string_buffer(256)
     ret = rocmsmi.rsmi_dev_vbios_version_get(device, vbios, 256)
-    vbios_ret = "N/A"
-    if rsmi_ret_ok(ret, device, silent=silent):
-        vbios_ret = vbios.value.decode()
-        if vbios_ret == "":
-            vbios_ret = "N/A"
-    return vbios_ret
+    if ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
+        return "Unsupported"
+    elif rsmi_ret_ok(ret, device, silent=silent):
+        return vbios.value.decode()
 
 
 def getVersion(deviceList, component, silent=False):
@@ -1023,7 +1020,6 @@ def checkIfSecondaryDie(device):
     if (rsmi_ret_ok(ret, None, 'energy_count_secondary_die_check', silent=False)) and (energy_count.value == 0):
         return True
     return False
-
 
 def resetClocks(deviceList):
     """ Reset clocks to default
@@ -1947,11 +1943,16 @@ def showAllConcise(deviceList):
     deviceList.sort()
     available_temp_type = getTemperatureLabel(deviceList)
     temp_type = "(" + available_temp_type.capitalize() + ")"
-    header=['Device', 'Node','IDs','', 'Temp', 'Power', 'Partitions',
+    header=['Device', '[Model : Revision]', 'Temp', 'Power', 'Partitions',
             'SCLK', 'MCLK', 'Fan', 'Perf', 'PwrCap', 'VRAM%', 'GPU%']
+<<<<<<< HEAD
     subheader = ['', '','(DID,', 'GUID)', temp_type, getPowerLabel(deviceList),
                  '(Mem, Compute, ID)',
                    '', '', '', '', '', '', '']
+=======
+    subheader = ['', 'Name (20 chars)', temp_type, getPowerLabel(deviceList),
+                 '(Mem, Compute)', '', '', '', '', '', '', '']
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
     # add additional spaces to match header
     for idx, item in enumerate(subheader):
         header_size = len(header[idx])
@@ -1968,6 +1969,8 @@ def showAllConcise(deviceList):
     values = {}
     degree_sign = u'\N{DEGREE SIGN}'
     for device in deviceList:
+        gpu_dev_product_info = getDevProductInfo(device, silent)
+        gpu_dev_product_info_names = list(gpu_dev_product_info[device])
         temp_val = str(getTemp(device, available_temp_type, silent))
         if temp_val != 'N/A':
             temp_val += degree_sign + 'C'
@@ -1996,6 +1999,7 @@ def showAllConcise(deviceList):
             gpu_busy = str(getGpuUse(device, silent)) + '%'
         else:
             gpu_busy = 'Unsupported'
+<<<<<<< HEAD
         allocated_mem_percent = getAllocatedMemoryPercent(device)
 
         # Top Row - per device data
@@ -2008,6 +2012,26 @@ def showAllConcise(deviceList):
                                             str(pwrCap),
                                             allocated_mem_percent['combined'],
                                             str(gpu_busy)]
+=======
+        vram_used, vram_total = getMemInfo(device, 'vram', silent)
+        mem_use_pct = 0
+        if vram_used is None:
+            mem_use_pct='Unsupported'
+        if vram_used != None and vram_total != None and float(vram_total) != 0:
+            mem_use_pct = '% 3.0f%%' % (100 * (float(vram_used) / float(vram_total)))
+
+        gpu_dev_product_info_top_name = gpu_dev_product_info_names[0]
+        if (len(gpu_dev_product_info_names) > 1):
+            values['card%s_Info' % (str(device))] = ['', gpu_dev_product_info_names[0], '', '', '',
+                                                    '', '', '',
+                                                    '', '', '', '']
+            gpu_dev_product_info_top_name = gpu_dev_product_info_names[1]
+
+        values['card%s' % (str(device))] = [device, gpu_dev_product_info_top_name, temp_val,
+                                            powerVal, combined_partition, sclk, mclk,
+                                            fan, str(perf).lower(), pwrCap, mem_use_pct,
+                                            gpu_busy]
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
 
     val_widths = {}
     for device in deviceList:
@@ -2031,13 +2055,18 @@ def showAllConcise(deviceList):
     for device in deviceList:
         printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
                                zip(range(len(max_widths)), values['card%s' % (str(device))])), None)
+        gpu_dev_product_info = getDevProductInfo(device, silent)
+        gpu_dev_product_info_names = list(gpu_dev_product_info[device])
+        if (len(gpu_dev_product_info_names) > 1):
+            printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
+                                zip(range(len(max_widths)), values['card%s_Info' % (str(device))])), None)
 
     printLogSpacer(contentSizeToFit=len(header_output))
     printLogSpacer(footerString, contentSizeToFit=len(header_output))
 
 
 def showAllConciseHw(deviceList):
-    """ Display critical Hardware info
+    """ Display critical Hardware info for all devices in a concise format
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
@@ -2045,24 +2074,43 @@ def showAllConciseHw(deviceList):
     if PRINT_JSON:
         print('ERROR: Cannot print JSON/CSV output for concise hardware output')
         sys.exit(1)
+<<<<<<< HEAD
     header = ['GPU', 'NODE', 'DID', 'GUID', 'GFX VER', 'GFX RAS', 'SDMA RAS', 'UMC RAS', 'VBIOS', 'BUS'
                , 'PARTITION ID']
+=======
+    printLogSpacer(' Concise Hardware Info ')
+    header = ['GPU', 'DID', 'DREV', 'GFX RAS', 'SDMA RAS', 'UMC RAS', 'VBIOS', 'BUS']
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
     head_widths = [len(head) + 2 for head in header]
     values = {}
     silent = True
     for device in deviceList:
+<<<<<<< HEAD
         did = getDRMDeviceId(device, silent)
         nodeid = getNodeId(device, silent)
         guid = getGUID(device, silent)
         partition_id = getPartitionId(device, silent)
         gfxVer = getTargetGfxVersion(device, silent)
+=======
+        gpuid = getId(device, silent)
+        if str(gpuid).startswith('0x'):
+            gpuid = str(gpuid)[2:]
+        gpurev = getRev(device, silent)
+        if str(gpurev).startswith('0x'):
+            gpurev = str(gpurev)[2:]
+
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
         gfxRas = getRasEnablement(device, 'GFX', silent)
         sdmaRas = getRasEnablement(device, 'SDMA', silent)
         umcRas = getRasEnablement(device, 'UMC', silent)
         vbios = getVbiosVersion(device, silent)
         bus = getBus(device, silent)
+<<<<<<< HEAD
         values['card%s' % (str(device))] = [device, nodeid, did, guid, gfxVer, gfxRas, sdmaRas,
                                             umcRas, vbios, bus, partition_id]
+=======
+        values['card%s' % (str(device))] = [device, gpuid, gpurev, gfxRas, sdmaRas, umcRas, vbios, bus]
+>>>>>>> 8e78352d3be3f67b12e7fc12b9207bf126de1ed0
     val_widths = {}
     for device in deviceList:
         val_widths[device] = [len(str(val)) + 2 for val in values['card%s' % (str(device))]]
@@ -2070,25 +2118,11 @@ def showAllConciseHw(deviceList):
     for device in deviceList:
         for col in range(len(val_widths[device])):
             max_widths[col] = max(max_widths[col], val_widths[device][col])
-    device_output=""
+    printLog(None, "".join(word.ljust(max_widths[col]) for col, word in zip(range(len(max_widths)), header)), None)
     for device in deviceList:
-        if (device + 1 != len(deviceList)):
-            device_output += "".join(str(word).ljust(max_widths[col]) for col, word in
-                               zip(range(len(max_widths)), values['card%s' % (str(device))])) + "\n"
-        else:
-            device_output += "".join(str(word).ljust(max_widths[col]) for col, word in
-                               zip(range(len(max_widths)), values['card%s' % (str(device))]))
-
-    #################################
-    # Display concise hardware info #
-    #################################
-    header_output = "".join(word.ljust(max_widths[col]) for col, word in zip(range(len(max_widths)), header))
-    printLogSpacer(headerString, contentSizeToFit=len(header_output))
-    printLogSpacer(' Concise Hardware Info ', contentSizeToFit=len(header_output))
-    printLog(None, header_output, None)
-    printLog(None, device_output, None)
-    printLogSpacer(fill='=', contentSizeToFit=len(header_output))
-    printLogSpacer(footerString, contentSizeToFit=len(header_output))
+        printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
+                               zip(range(len(max_widths)), values['card%s' % (str(device))])), None)
+    printLogSpacer()
 
 
 def showBus(deviceList):
@@ -2443,17 +2477,14 @@ def showEnergy(deviceList):
 
 
 def showId(deviceList):
-    """ Display the device IDs for a list of devices
+    """ Display the device ID for a list of devices
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
     printLogSpacer(' ID ')
     for device in deviceList:
-        printLog(device, 'Device Name', '\t\t' + str(getDeviceName(device)))
-        printLog(device, 'Device ID', '\t\t' + str(getDRMDeviceId(device)))
-        printLog(device, 'Device Rev', '\t\t' + str(getRev(device)))
-        printLog(device, 'Subsystem ID', '\t' + str(getSubsystemId(device)))
-        printLog(device, 'GUID', '\t\t' + str(getGUID(device)))
+        printLog(device, 'Device ID', getId(device))
+        printLog(device, 'Device Rev', getRev(device))
     printLogSpacer()
 
 
@@ -2649,7 +2680,6 @@ def showPids(verbose):
         vramUsage = 'UNKNOWN'
         sdmaUsage = 'UNKNOWN'
         cuOccupancy = 'UNKNOWN'
-        cuOccupancyInvalid = 0xFFFFFFFF
         dv_indices = (c_uint32 * num_devices.value)()
         ret = rocmsmi.rsmi_compute_process_gpus_get(int(pid), None, byref(num_devices))
         if rsmi_ret_ok(ret, metric='get_gpu_compute_process'):
@@ -2665,8 +2695,7 @@ def showPids(verbose):
                 if rsmi_ret_ok(ret, metric='get_compute_process_info_by_pid'):
                     vramUsage = proc.vram_usage
                     sdmaUsage = proc.sdma_usage
-                    if proc.cu_occupancy != cuOccupancyInvalid:
-                        cuOccupancy = proc.cu_occupancy
+                    cuOccupancy = proc.cu_occupancy
                 else:
                     logging.debug('Unable to fetch process info by PID')
                 dataArray.append([pid, getProcessName(pid), str(gpuNumber), str(vramUsage), str(sdmaUsage), str(cuOccupancy)])
@@ -2675,8 +2704,7 @@ def showPids(verbose):
             if rsmi_ret_ok(ret, metric='get_compute_process_info_by_pid'):
                 vramUsage = proc.vram_usage
                 sdmaUsage = proc.sdma_usage
-                if proc.cu_occupancy != cuOccupancyInvalid:
-                    cuOccupancy = proc.cu_occupancy
+                cuOccupancy = proc.cu_occupancy
             else:
                 logging.debug('Unable to fetch process info by PID')
             dataArray.append([pid, getProcessName(pid), str(gpuNumber), str(vramUsage), str(sdmaUsage), str(cuOccupancy)])
@@ -2744,39 +2772,124 @@ def showPowerPlayTable(deviceList):
     printLogSpacer()
 
 
-def showProduct(deviceList):
-    """ Show the requested product information for a list of devices
+def showProductName(deviceList):
+    """ Show the requested product name for a list of devices
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
+    series = create_string_buffer(256)
+    model = create_string_buffer(256)
+    vendor = create_string_buffer(256)
+    vbios = create_string_buffer(256)
+    # sku = create_string_buffer(256)
     printLogSpacer(' Product Info ')
     for device in deviceList:
+        # Retrieve card vendor
+        ret = rocmsmi.rsmi_dev_vendor_name_get(device, vendor, 256)
         # Only continue if GPU vendor is AMD
-        if isAmdDevice(device):
+        if rsmi_ret_ok(ret, device, 'get_vendor_name') and isAmdDevice(device):
+            try:
+                device_vendor = vendor.value.decode()
+            except UnicodeDecodeError:
+                printErrLog(device, "Unable to read device vendor")
+                device_vendor = "N/A"
+            # Retrieve the device series
+            ret = rocmsmi.rsmi_dev_name_get(device, series, 256)
+            if rsmi_ret_ok(ret, device, 'get_name'):
+                try:
+                    device_series = series.value.decode()
+                    printLog(device, 'Card series', '\t\t' + device_series)
+                except UnicodeDecodeError:
+                    printErrLog(device, "Unable to read card series")
+            # Retrieve the device model
+            ret = rocmsmi.rsmi_dev_subsystem_name_get(device, model, 256)
+            if rsmi_ret_ok(ret, device, 'get_subsystem_name'):
+                try:
+                    device_model = model.value.decode()
+                    # padHexValue is used for applications that expect 4-digit card models
+                    printLog(device, 'Card model', '\t\t' + padHexValue(device_model, 4))
+                except UnicodeDecodeError:
+                    printErrLog(device, "Unable to read device model")
+            printLog(device, 'Card vendor', '\t\t' + device_vendor)
             # TODO: Retrieve the SKU using 'rsmi_dev_sku_get' from the LIB
-            # Device SKU is just the characters in between the two '-' in vbios_version
-            vbios = getVbiosVersion(device, True)
-            device_sku = "N/A"
-            if vbios.count('-') == 2 and len(str(vbios.split('-')[1])) > 1:
-                device_sku = vbios.split('-')[1]
-
-            printLog(device, 'Card Series', '\t\t' + str(getDeviceName(device)))
-            # Retrieve device ID from DRM and KFD
-            printLog(device, 'Card Model', str('\t\t' + getDRMDeviceId(device)))
-            printLog(device, 'Card Vendor', '\t\t' + getVendor(device))
-            printLog(device, 'Card SKU', '\t\t' + device_sku)
-            printLog(device, 'Subsystem ID', str('\t' + getSubsystemId(device)))
-            printLog(device, 'Device Rev', str('\t\t' + getRev(device)))
-            printLog(device, 'Node ID', str('\t\t' + str(getNodeId(device))))
-            printLog(device, 'GUID', str('\t\t' + str(getGUID(device))))
-            printLog(device, 'GFX Version', str('\t\t' + getTargetGfxVersion(device)))
-
+            # ret = rocmsmi.rsmi_dev_sku_get(device, sku, 256)
+            # if rsmi_ret_ok(ret, device) and sku.value.decode():
+            #     device_sku = sku.value.decode()
+            # Retrieve the device SKU as a substring from VBIOS
+            device_sku = ""
+            ret = rocmsmi.rsmi_dev_vbios_version_get(device, vbios, 256)
+            if ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
+                device_sku = "Unsupported"
+                printLog(device, 'Card SKU', '\t\t' + device_sku)
+            elif rsmi_ret_ok(ret, device, 'get_vbios_version') and vbios.value.decode():
+                # Device SKU is just the characters in between the two '-' in vbios_version
+                if vbios.value.decode().count('-') == 2 and len(str(vbios.value.decode().split('-')[1])) > 1:
+                    device_sku = vbios.value.decode().split('-')[1]
+                else:
+                    device_sku = 'unknown'
+                printLog(device, 'Card SKU', '\t\t' + device_sku)
+            else:
+                printErrLog(device, "Unable to decode VBIOS value for device SKU")
         else:
-            vendor = getVendor(device)
             printLog(device, 'Incompatible device.\n' \
                              'GPU[%s]\t\t: Expected vendor name: Advanced Micro Devices, Inc. [AMD/ATI]\n' \
-                             'GPU[%s]\t\t: Actual vendor name' % (device, device), vendor)
+                             'GPU[%s]\t\t: Actual vendor name' % (device, device), vendor.value.decode())
     printLogSpacer()
+
+
+def getDevProductInfo(device, silent=False):
+    """ Show the requested product name for the device requested
+
+    @param device: Device we want to get the info for
+    @param silent=Turn on to silence error output
+    (you plan to handle manually). Default is off.
+    """
+
+    # Retrieve card vendor
+    MAX_DESC_SIZE = 20
+    device_series = "N/A"
+    device_model = "N/A"
+    gpu_revision = "N/A"
+    device_list = {}
+    vendor = create_string_buffer(MAX_BUFF_SIZE)
+    ret = rocmsmi.rsmi_dev_vendor_name_get(device, vendor, MAX_BUFF_SIZE)
+    # Only continue if GPU vendor is AMD
+    if rsmi_ret_ok(ret, device, 'get_vendor_name', silent) and isAmdDevice(device):
+        # Retrieve the device series
+        series = create_string_buffer(MAX_BUFF_SIZE)
+        ret = rocmsmi.rsmi_dev_name_get(device, series, MAX_BUFF_SIZE)
+        if rsmi_ret_ok(ret, device, 'get_name', silent):
+            try:
+                device_series = series.value.decode()
+            except UnicodeDecodeError:
+                if not silent:
+                    printErrLog(device, "Unable to read card series")
+
+        # Retrieve the device model
+        model = create_string_buffer(MAX_BUFF_SIZE)
+        ret = rocmsmi.rsmi_dev_subsystem_name_get(device, model, MAX_BUFF_SIZE)
+        if rsmi_ret_ok(ret, device, 'get_subsystem_name', silent):
+            try:
+                device_model = model.value.decode()
+                device_model = padHexValue(device_model, 4)
+            except UnicodeDecodeError:
+                if not silent:
+                    printErrLog(device, "Unable to read device model")
+
+            try:
+                gpu_revision = padHexValue(getRev(device), 2)
+            except Exception as exc:
+                if not silent:
+                    printErrLog(device, "Unable to read card revision %s" % (exc))
+
+        device_series_str = str(device_series[:MAX_DESC_SIZE])
+        device_series_str = device_series_str.ljust(MAX_DESC_SIZE, ' ')
+        device_model_str  = str(('[' + device_model + ' : ' + gpu_revision + ']'))
+        device_model_str  = str(device_model_str[:MAX_DESC_SIZE])
+        device_model_str  = device_model_str.ljust(MAX_DESC_SIZE, ' ')
+        device_list = {device : [device_series_str, device_model_str]}
+
+    return device_list
 
 
 def showProfile(deviceList):
@@ -3793,10 +3906,9 @@ def save(deviceList, savefilepath):
 
 # The code below is for when this script is run as an executable instead of when imported as a module
 def isConciseInfoRequested(args):
-    is_concise_req = len(sys.argv) == 1 or \
+    return len(sys.argv) == 1 or \
             len(sys.argv) == 2 and (args.alldevices or (args.json or args.csv)) or \
             len(sys.argv) == 3 and (args.alldevices and (args.json or args.csv))
-    return is_concise_req
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -3822,7 +3934,7 @@ if __name__ == '__main__':
     groupDisplayOpt.add_argument('--showhw', help='Show Hardware details', action='store_true')
     groupDisplayOpt.add_argument('-a', '--showallinfo', help='Show Temperature, Fan and Clock values',
                                  action='store_true')
-    groupDisplayTop.add_argument('-i', '--showid', help='Show DEVICE IDs', action='store_true')
+    groupDisplayTop.add_argument('-i', '--showid', help='Show DEVICE ID', action='store_true')
     groupDisplayTop.add_argument('-v', '--showvbios', help='Show VBIOS version', action='store_true')
     groupDisplayTop.add_argument('-e', '--showevents', help='Show event list', metavar='EVENT', type=str, nargs='*')
     groupDisplayTop.add_argument('--showdriverversion', help='Show kernel driver version', action='store_true')
@@ -3831,7 +3943,7 @@ if __name__ == '__main__':
     groupDisplayTop.add_argument('--showmclkrange', help='Show mclk range', action='store_true')
     groupDisplayTop.add_argument('--showmemvendor', help='Show GPU memory vendor', action='store_true')
     groupDisplayTop.add_argument('--showsclkrange', help='Show sclk range', action='store_true')
-    groupDisplayTop.add_argument('--showproductname', help='Show product details', action='store_true')
+    groupDisplayTop.add_argument('--showproductname', help='Show SKU/Vendor name', action='store_true')
     groupDisplayTop.add_argument('--showserial', help='Show GPU\'s Serial Number', action='store_true')
     groupDisplayTop.add_argument('--showuniqueid', help='Show GPU\'s Unique ID', action='store_true')
     groupDisplayTop.add_argument('--showvoltagerange', help='Show voltage range', action='store_true')
@@ -4015,7 +4127,7 @@ if __name__ == '__main__':
 
     if not PRINT_JSON:
         print('\n')
-    if not isConciseInfoRequested(args) and args.showhw == False:
+    if not isConciseInfoRequested(args):
         printLogSpacer(headerString)
 
     if args.showallinfo:
@@ -4142,7 +4254,7 @@ if __name__ == '__main__':
     if args.showfwinfo or str(args.showfwinfo) == '[]':
         showFwInfo(deviceList, args.showfwinfo)
     if args.showproductname:
-        showProduct(deviceList)
+        showProductName(deviceList)
     if args.showxgmierr:
         showXgmiErr(deviceList)
     if args.shownodesbw:
@@ -4279,7 +4391,7 @@ if __name__ == '__main__':
                 devCsv = formatCsv(deviceList)
                 print(devCsv)
 
-    if not isConciseInfoRequested(args) and args.showhw == False:
+    if not isConciseInfoRequested(args):
         printLogSpacer(footerString)
 
     rsmi_ret_ok(rocmsmi.rsmi_shut_down())
