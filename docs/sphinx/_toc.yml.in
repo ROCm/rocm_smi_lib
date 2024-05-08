@@ -28,4 +28,8 @@ subtrees:
   - file: license
     title: License
   - file: CHANGELOG
+<<<<<<< HEAD
     title: Changelog
+=======
+    title: Changelog
+>>>>>>> f7cf9e12598d0f6082163c73802ca70cb7773419
