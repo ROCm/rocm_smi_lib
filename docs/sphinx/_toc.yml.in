@@ -8,15 +8,15 @@ subtrees:
 - caption: Tutorials
   entries:
   - file: c++_tutorials
-    title: C++ Tutorials
+    title: C++ tutorials
   - file: python_tutorials
-    title: Python Tutorials
+    title: Python tutorials
 - caption: How to Guide
   entries:
   - file: c++_usage
-    title: C++ How to Guide
+    title: Use C++ in ROCm SMI 
   - file: python_usage
-    title: Python How to Guide
+    title: Use Python in ROCm SMI 
 - caption: Reference
   entries:
   - file: doxygen/html/index
@@ -27,5 +27,4 @@ subtrees:
   entries:
   - file: license
     title: License
-  - file: CHANGELOG
-    title: Changelog
+ 
