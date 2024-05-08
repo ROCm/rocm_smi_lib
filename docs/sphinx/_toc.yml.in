@@ -5,31 +5,44 @@ defaults:
   maxdepth: 6
 root: index
 subtrees:
-- caption: Tutorials
+
+- caption: Installation
   entries:
-  - file: c++_tutorials
-    title: C++ Tutorials
-  - file: python_tutorials
-    title: Python Tutorials
-- caption: How to Guide
+  - file: install/install
+    title: Installing ROCm SMI
+ 
+- caption: How to 
   entries:
   - file: c++_usage
-    title: C++ How to Guide
+    title: Use C++ in ROCm SMI 
   - file: python_usage
-    title: Python How to Guide
+    title: Use Python in ROCm SMI 
+    
 - caption: Reference
   entries:
   - file: doxygen/html/index
     title: C++ Reference
-  - file: python_api
-    title: Python Reference
+  - file: reference/python_api
+    title: Python reference
+    
+- caption: Tutorials
+  entries:
+  - file: tutorials/c++_tutorials
+    title: C++ tutorials
+  - file: tutorials/python_tutorials
+    title: Python tutorials
+    
 - caption: About
   entries:
   - file: license
     title: License
+<<<<<<< HEAD
   - file: CHANGELOG
 <<<<<<< HEAD
     title: Changelog
 =======
     title: Changelog
 >>>>>>> f7cf9e12598d0f6082163c73802ca70cb7773419
+=======
+ 
+>>>>>>> e54c1ab6a54f88f9a4df1ac17101af00008dddad
