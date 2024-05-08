@@ -29,8 +29,8 @@ The ROCm System Management Interface Library, or ROCm SMI library, is part of th
 
 .. grid-item-card:: Tutorials
 
-    * :doc:`C++ <tutorial/use-cpp>`
-    * :doc:`Python <how-to/use-cpp>`                                                                                                         
+    * :doc:`C++ <tutorial/c++_tutorials>`
+    * :doc:`Python <tutorials/python_tutorials>`                                                                                                         
 
 To contribute to the documentation, refer to
 `Contributing to ROCm <https://rocm.docs.amd.com/en/latest/contribute/contributing.html>`_.
