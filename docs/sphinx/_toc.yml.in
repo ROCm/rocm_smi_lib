@@ -20,10 +20,14 @@ subtrees:
     
 - caption: Reference
   entries:
-  - file: doxygen/html/index
-    title: C++ reference
-  - file: reference/python_api
-    title: Python reference
+    - file: doxygen/docBin/html/files
+      title: Files
+    - file: doxygen/docBin/html/globals
+      title: Functions
+    - file: doxygen/docBin/html/annotated
+      title: Data structures     
+    - file: reference/python_api
+      title: Python reference
     
 - caption: Tutorials
   entries:
