@@ -21,7 +21,7 @@ subtrees:
 - caption: Reference
   entries:
   - file: doxygen/html/index
-    title: C++ Reference
+    title: C++ reference
   - file: reference/python_api
     title: Python reference
     
