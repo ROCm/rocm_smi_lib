@@ -7,10 +7,12 @@
 Installing ROCm SMI
 *********************
 
-Planned Deprication Notice 
-ROCm System Management Interface (ROCm SMI) Library is planned to be ***depricated***. Release date to be announced soon. Please start migrating to AMD SMI.
-  - Documentation: [https://rocm.docs.amd.com](https://rocm.docs.amd.com/projects/amdsmi/en/latest/)
-  - Github: [https://github.com/ROCm/amdsmi](https://github.com/ROCm/amdsmi)
+Planned deprecation notice 
+
+ROCm System Management Interface (ROCm SMI) Library is planned to be ***deprecated***. Release date to be announced soon. We recommend migration to AMD SMI.
+
+  - `Documentation https://rocm.docs.amd.com`_ 
+  - `Github: https://github.com/ROCm/amdsmi`_
 
 Install amdgpu using ROCm
 --------------------------
