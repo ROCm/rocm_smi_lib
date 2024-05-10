@@ -1,5 +1,5 @@
 .. meta::
-  :description: Install ROCm SMI
+  :description: ROCm SMI tutorial
   :keywords: install, SMI, library, api, AMD, ROCm
 
 ROCm SMI C++ API tutorial
