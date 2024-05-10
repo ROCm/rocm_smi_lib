@@ -19,8 +19,8 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
 
   .. grid-item-card:: API reference
 
-    * :doc:`API library <../doxygen/html/files>`
-    * :doc:`Functions <../doxygen/html/globals>`
+    * :doc:`Files <../doxygen/html/files>`
+    * :doc:`Globals <../doxygen/html/globals>`
     * :doc:`Data structures <../doxygen/html/annotated>`
     * :doc:`Python API <./reference/python-api>`
 
@@ -31,8 +31,8 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
 
 .. grid-item-card:: Tutorials
 
-    * :doc:`C++ <tutorial/c++_tutorials>`
-    * :doc:`Python <tutorials/python_tutorials>`                                                                                                         
+    * :doc:`C++ tutorials <tutorial/cpp_tutorials>`
+    * :doc:`Python tutorials <tutorials/python_tutorials>`                                                                                                         
 
 To contribute to the documentation, refer to
 `Contributing to ROCm <https://rocm.docs.amd.com/en/latest/contribute/contributing.html>`_.
