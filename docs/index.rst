@@ -31,8 +31,8 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
 
 .. grid-item-card:: Tutorials
 
-    * :doc:`C++ tutorials <tutorial/cpp_tutorials>`
-    * :doc:`Python tutorials <tutorials/python_tutorials>`                                                                                                         
+    * :doc:`C++ <tutorials/cpp_tutorials>`
+    * :doc:`Python <tutorials/python_tutorials>`                                                                                                         
 
 To contribute to the documentation, refer to
 `Contributing to ROCm <https://rocm.docs.amd.com/en/latest/contribute/contributing.html>`_.
