@@ -6,7 +6,7 @@
 ROCm System Management Interface (ROCm SMI) library
 ****************************************************
 
-The ROCm System Management Interface library, or ROCm SMI library, is part of the Radeon Open Compute [ROCm](https://github.com/RadeonOpenCompute) software stack. It is a C library for Linux that provides a user space interface for applications to monitor and control GPU applications.
+The ROCm System Management Interface library, or ROCm SMI library, is part of the ROCm software stack. It is a C library for Linux that provides a user space interface for applications to monitor and control GPU applications.
 
 For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
                                                                                                              
