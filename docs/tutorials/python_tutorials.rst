@@ -3,7 +3,7 @@
   :keywords: install, SMI, library, api, AMD, ROCm
 
 
-rocm_smi Python API tutorial
+ROCm SMI Python API tutorial
 -----------------------------
 
 .. code-block:: python
