@@ -27,7 +27,7 @@ subtrees:
     - file: doxygen/html/annotated
       title: Data structures     
     - file: reference/python_api
-      title: Python reference
+      title: Python API
     
 - caption: Tutorials
   entries:
