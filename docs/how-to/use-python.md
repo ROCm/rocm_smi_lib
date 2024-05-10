@@ -219,7 +219,7 @@ $ sudo /opt/rocm/bin/rocm-smi --setextremum max sclk 2100
           DAMAGES CAUSED BY USE OF YOUR AMD GPU OUTSIDE OF OFFICIAL AMD SPECIFICATIONS OR
           OUTSIDE OF FACTORY SETTINGS ARE NOT COVERED UNDER ANY AMD PRODUCT WARRANTY AND
           MAY NOT BE COVERED BY YOUR BOARD OR SYSTEM MANUFACTURER'S WARRANTY.
-          Please use this utility with caution.
+          Use this utility with caution.
 
 Do you accept these terms? [y/N] y
 ================================ Set Valid sclk Extremum =================================
@@ -272,7 +272,7 @@ GPU[3]          : Successfully set max sclk to 2100(MHz)
         This option can be used in conjunction with the --setsclk/--setmclk mask
 
         Operating the GPU outside of specifications can cause irreparable damage to your hardware
-        Please observe the warning displayed when using this option
+        Observe the warning displayed when using this option
 
         This flag automatically sets the clock to the highest level, as only the highest level is
         increased by the OverDrive value
@@ -290,7 +290,7 @@ GPU[3]          : Successfully set max sclk to 2100(MHz)
 
     NOTES:
         Operating the GPU outside of specifications can cause irreparable damage to your hardware
-        Please observe the warning displayed when using this option
+        Observe the warning displayed when using this option
 
 --setprofile SETPROFILE:
     The Compute Profile accepts 1 or n parameters, either the Profile to select (see --showprofile for a list
