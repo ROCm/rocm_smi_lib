@@ -2,7 +2,8 @@
 Python tutorials
 ====================
 
-This chapter is the rocm_smi Python API tutorials.
+rocm_smi Python API tutorial
+-----------------------------
 
 .. code-block:: python
 
