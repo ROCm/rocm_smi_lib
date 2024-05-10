@@ -9,13 +9,13 @@ ROCm System Management Interface (ROCm SMI) library
 The ROCm System Management Interface library, or ROCm SMI library, is part of the ROCm software stack. It is a C library for Linux that provides a user space interface for applications to monitor and control GPU applications.
 
 For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
-                                                                                                             
-  .. grid:: 2
-     :gutter: 3
+
+.. grid:: 2
+  :gutter: 3
 
   .. grid-item-card:: Install
 
-      * :doc:`ROCm SMI installation <./install/install>`
+     * :doc:`ROCm SMI installation <./install/install>`
 
   .. grid-item-card:: API reference
 
@@ -24,18 +24,16 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
       * :doc:`Data structures <../doxygen/html/annotated>`
       * :doc:`Python API <./reference/python_api>`
 
-  .. grid-item-card:: Tutorials
-
-      * :doc:`C++ <tutorials/cpp_tutorials>`
-      * :doc:`Python <tutorials/python_tutorials>`  
-
   .. grid-item-card:: How to
 
-      * :doc:`Use C++ in ROCm SMI <how-to/use-cpp>`
-      * :doc:`Use Python in ROCm SMI <how-to/use-python>`        
+     * :doc:`Use C++ in ROCm SMI <how-to/use-cpp>`
+     * :doc:`Use Python in ROCm SMI <how-to/use-python>
+   
 
+  .. grid-item-card:: Tutorials    
 
- 
+     * :doc:`C++ <tutorials/cpp_tutorials>`
+     * :doc:`Python <tutorials/python_tutorials>`  
 
 
 To contribute to the documentation, refer to `Contributing to ROCm <https://rocm.docs.amd.com/en/latest/contribute/contributing.html>`_.
