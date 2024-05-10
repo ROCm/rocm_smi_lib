@@ -13,23 +13,23 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
   .. grid:: 2
      :gutter: 3
 
-  .. grid-item-card:: Install
+    .. grid-item-card:: Install
 
         * :doc:`ROCm SMI installation <./install/install>`
 
-  .. grid-item-card:: API reference
+    .. grid-item-card:: API reference
 
         * :doc:`Files <../doxygen/html/files>`
         * :doc:`Globals <../doxygen/html/globals>`
         * :doc:`Data structures <../doxygen/html/annotated>`
         * :doc:`Python API <./reference/python_api>`
 
-  .. grid-item-card:: Tutorials
+    .. grid-item-card:: Tutorials
 
         * :doc:`C++ <tutorials/cpp_tutorials>`
         * :doc:`Python <tutorials/python_tutorials>`  
 
-  .. grid-item-card:: How to
+    .. grid-item-card:: How to
 
         * :doc:`Use C++ in ROCm SMI <how-to/use-cpp>`
         * :doc:`Use Python in ROCm SMI <how-to/use-python>`        
