@@ -32,9 +32,9 @@ subtrees:
 - caption: Tutorials
   entries:
   - file: tutorials/cpp_tutorials
-    title: C++ tutorials
+    title: C++ 
   - file: tutorials/python_tutorials
-    title: Python tutorials
+    title: Python 
     
 - caption: About
   entries:
