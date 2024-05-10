@@ -11,7 +11,7 @@ Planned deprecation notice
 
 ROCm System Management Interface (ROCm SMI) Library is planned to be ***deprecated***. Release date to be announced soon. We recommend migration to AMD SMI.
 
-  - `Documentation https://rocm.docs.amd.com`_ 
+  - `Documentation: https://rocm.docs.amd.com`_ 
   - `Github: https://github.com/ROCm/amdsmi`_
 
 Install amdgpu using ROCm
