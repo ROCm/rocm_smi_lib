@@ -9,7 +9,7 @@ subtrees:
 - caption: Installation
   entries:
   - file: install/install
-    title: Installing ROCm SMI
+    title: ROCm SMI installation
  
 - caption: How to 
   entries:
