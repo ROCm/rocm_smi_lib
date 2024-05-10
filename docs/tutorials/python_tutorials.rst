@@ -1,6 +1,3 @@
-====================
-Python tutorials
-====================
 
 rocm_smi Python API tutorial
 -----------------------------
