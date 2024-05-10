@@ -1,5 +1,5 @@
 
-## Use C++ in ROCm SMI - Test
+## Use C++ in ROCm SMI 
 
 ### Device Indices
 
