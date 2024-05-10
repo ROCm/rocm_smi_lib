@@ -16,9 +16,7 @@ Install amdgpu using ROCm
 --------------------------
 Use the following instructions to install AMDGPU using ROCm:
   
-1. Install amdgpu driver:  
-
-  See the following example, your release and link may differ. The `amdgpu-install --usecase=rocm` triggers both an amdgpu driver update and ROCm SMI packages to be installed on your device.
+1. Install amdgpu driver. Refer to the following example, your release and link may differ. The `amdgpu-install --usecase=rocm` triggers both an amdgpu driver update and ROCm SMI packages to be installed on your device.
   
 .. code-block:: shell
   
