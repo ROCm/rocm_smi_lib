@@ -28,6 +28,8 @@ subtrees:
       title: Data structures
     - file: doxygen/html/modules
       title: Modules
+    - file: reference/python_api
+      title: Python API
     
 - caption: Tutorials
   entries:
