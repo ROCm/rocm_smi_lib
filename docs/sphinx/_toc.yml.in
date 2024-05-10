@@ -31,7 +31,7 @@ subtrees:
     
 - caption: Tutorials
   entries:
-  - file: tutorials/c++_tutorials
+  - file: tutorials/cpp_tutorials
     title: C++ tutorials
   - file: tutorials/python_tutorials
     title: Python tutorials
