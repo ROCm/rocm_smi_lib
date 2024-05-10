@@ -13,7 +13,8 @@ LD_LIBRARY_PATH  must be set to the folder containing librocm_smi64.
 
 ## Version
 
-The SMI will report two "versions", ROCM-SMI version and other is ROCM-SMI-LIB version.  
+The SMI will report two "versions", ROCM-SMI version and other is ROCM-SMI-LIB version.
+
 - ROCM-SMI version is the CLI/tool version number with commit ID appended after + sign.
 - ROCM-SMI-LIB version is the library package version number.
   
