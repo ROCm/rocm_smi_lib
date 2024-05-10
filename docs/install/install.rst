@@ -8,6 +8,7 @@ Installing ROCm SMI
 *********************
 
 Planned deprecation notice 
+----------------------------
 
 ROCm System Management Interface (ROCm SMI) Library is planned to be ***deprecated***. Release date to be announced soon. We recommend migration to AMD SMI.
 
