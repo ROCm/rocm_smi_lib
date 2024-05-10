@@ -27,7 +27,7 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
   .. grid-item-card:: How to
 
      * :doc:`Use C++ in ROCm SMI <how-to/use-cpp>`
-     * :doc:`Use Python in ROCm SMI <how-to/use-python>
+     * :doc:`Use Python in ROCm SMI <how-to/use-python>`
    
 
   .. grid-item-card:: Tutorials    
