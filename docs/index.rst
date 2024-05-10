@@ -22,7 +22,7 @@ For more information, refer to `GitHub. <https://github.com/ROCm/rocm_smi_lib>`_
     * :doc:`Files <../doxygen/html/files>`
     * :doc:`Globals <../doxygen/html/globals>`
     * :doc:`Data structures <../doxygen/html/annotated>`
-    * :doc:`Python API <./reference/python-api>`
+    * :doc:`Python API <./reference/python_api>`
 
   .. grid-item-card:: How to
 
