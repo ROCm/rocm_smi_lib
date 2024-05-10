@@ -1,5 +1,5 @@
 
-## Usage Basics
+## Use C++ in ROCm SMI
 
 ### Device Indices
 
