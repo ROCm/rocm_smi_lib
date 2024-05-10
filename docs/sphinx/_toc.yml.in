@@ -25,9 +25,9 @@ subtrees:
     - file: doxygen/html/globals
       title: Globals
     - file: doxygen/html/annotated
-      title: Data structures     
-    - file: reference/python_api
-      title: Python API
+      title: Data structures
+    - file: doxygen/html/modules
+      title: Modules
     
 - caption: Tutorials
   entries:
