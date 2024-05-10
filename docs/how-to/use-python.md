@@ -1,24 +1,22 @@
 
-# Radeon Open Compute (ROCm) - System Management Interface - Command Line Tool
+# Radeon Open Compute (ROCm) - System Management Interface - command line tool
 
-This tool acts as a command line interface for manipulating
-and monitoring the amdgpu kernel, and is intended to replace
-and deprecate the existing rocm_smi.py CLI tool.
-It uses Ctypes to call the rocm_smi_lib API.
-Recommended: At least one AMD GPU with ROCm driver installed
+This tool acts as a command line interface for manipulating and monitoring the amdgpu kernel, and is intended to replace and deprecate the existing rocm_smi.py CLI tool.
+It uses Ctypes to call the rocm_smi_lib API. Recommended: At least one AMD GPU with ROCm driver installed
+
 Required: ROCm SMI library installed (librocm_smi64)
 
 ## Installation
 
-Follow installation procedure for rocm_smi_lib.
-Please refer to [https://github.com/RadeonOpenCompute/rocm_smi_lib](https://github.com/RadeonOpenCompute/rocm_smi_lib) for the installation guide.
-LD_LIBRARY_PATH  should be set to the folder containing librocm_smi64.
+Follow the installation procedure for rocm_smi_lib. Refer to [https://github.com/RadeonOpenCompute/rocm_smi_lib](https://github.com/RadeonOpenCompute/rocm_smi_lib) for the installation guide.
+LD_LIBRARY_PATH  must be set to the folder containing librocm_smi64.
 
 ## Version
 
 The SMI will report two "versions", ROCM-SMI version and other is ROCM-SMI-LIB version.  
-- ROCM-SMI version is the CLI/tool version number with commit ID appended after + sign.  
+- ROCM-SMI version is the CLI/tool version number with commit ID appended after + sign.
 - ROCM-SMI-LIB version is the library package version number.
+  
 ```
 ROCM-SMI version: 2.0.0+8e78352
 ROCM-SMI-LIB version: 6.1.0
