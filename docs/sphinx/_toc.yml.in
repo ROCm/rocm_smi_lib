@@ -18,7 +18,7 @@ subtrees:
   - file: how-to/use-python
     title: Use Python in ROCm SMI 
     
-- caption: Reference
+- caption: API Reference
   entries:
     - file: doxygen/html/files
       title: Files
