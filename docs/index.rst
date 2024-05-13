@@ -25,7 +25,7 @@ For more information, refer to the `GitHub repository <https://github.com/ROCm/a
 
      * :doc:`ROCm SMI installation <./install/install>`
 
-  .. grid-item-card:: Reference
+  .. grid-item-card:: API Reference
 
       * :doc:`Files <../doxygen/html/files>`
       * :doc:`Globals <../doxygen/html/globals>`
