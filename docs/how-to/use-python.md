@@ -1,5 +1,5 @@
 
-# Radeon Open Compute (ROCm) - System Management Interface - command line tool
+# Using Python in ROCm SMI
 
 This tool acts as a command line interface for manipulating and monitoring the amdgpu kernel, and is intended to replace and deprecate the existing rocm_smi.py CLI tool.
 It uses Ctypes to call the rocm_smi_lib API. Recommended: At least one AMD GPU with ROCm driver installed
