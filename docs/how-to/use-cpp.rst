@@ -3,7 +3,9 @@
   :description: Using ROCm SMI
   :keywords: install, SMI, library, api, AMD, ROCm
 
-  
+
+Using C++ in ROCm SMI
+*********************  
 
 Device indices 
 ---------------
