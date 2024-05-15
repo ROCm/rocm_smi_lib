@@ -3,8 +3,9 @@
 
 This tool acts as a command line interface for manipulating
 and monitoring the amdgpu kernel, and is intended to replace
-and deprecate the existing rocm_smi.py CLI tool.
-It uses Ctypes to call the rocm_smi_lib API.
+and deprecate the existing rocm_smi.py CLI tool located at
+https://github.com/ROCm/ROC-smi.
+This tool uses Ctypes to call the rocm_smi_lib API.
 Recommended: At least one AMD GPU with ROCm driver installed
 Required: ROCm SMI library installed (librocm_smi64)
 """
@@ -31,7 +32,7 @@ from rsmiBindings import *
 # Patch version - Increment when adding a fix, set to 0 when minor is incremented
 # Hash  version - Shortened commit hash. Print here and not with lib for consistency with amd-smi
 SMI_MAJ = 2
-SMI_MIN = 0
+SMI_MIN = 2
 SMI_PAT = 0
 # SMI_HASH is provided by rsmiBindings
 __version__ = '%s.%s.%s+%s' % (SMI_MAJ, SMI_MIN, SMI_PAT, SMI_HASH)
@@ -157,7 +158,7 @@ def formatMatrixToJSON(deviceList, matrix, metricName):
     :param deviceList: List of DRM devices (can be a single-item list)
     :param metricName: Title of the item to print to the log
     :param matrix: symmetric matrix full of values of every permutation of DRM devices.
-    
+
     Matrix example:
 
     .. math::
@@ -554,9 +555,9 @@ def getPidList():
 def getPower(device):
     """ Return dictionary of power responses.
         Response power dictionary:
-    
+
         .. code-block:: python
-        
+
             {
                 'power': string wattage response or 'N/A' (for not RSMI_STATUS_SUCCESS),
                 'power_type': power type string - 'Current Socket' or 'Average',
@@ -566,7 +567,7 @@ def getPower(device):
 
     :param device: DRM device identifier
     """
-   
+
     power = c_int64(0)
     power_type = rsmi_power_type_t()
     power_ret_dict = {
@@ -668,7 +669,7 @@ def getPowerLabel(deviceList):
         return powerLabel
     device=deviceList[0]
     power_dict = getPower(device)
-    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
         power_dict['power_type'] == 'CURRENT SOCKET'):
         powerLabel = rsmi_power_label.CURRENT_SOCKET_POWER
     return powerLabel
@@ -1251,7 +1252,7 @@ def setClockExtremum(deviceList, level,  clkType, clkValue, autoRespond):
     if level == "max":
         point = 1
     try:
-        int(clkValue) 
+        int(clkValue)
     except ValueError:
         printErrLog(None, 'Unable to set %s' % (clkValue))
         logging.error('%s is not an integer', clkValue)
@@ -1972,7 +1973,7 @@ def showAllConcise(deviceList):
             temp_val += degree_sign + 'C'
         power_dict = getPower(device)
         powerVal = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
             if power_dict['power'] != 0:
                 powerVal = power_dict['power'] + power_dict['unit']
@@ -2001,7 +2002,7 @@ def showAllConcise(deviceList):
         values['card%s' % (str(device))] = [device, getNodeId(device),
                                             str(getDRMDeviceId(device)) + ", ",
                                             str(getGUID(device)),
-                                            temp_val, powerVal, 
+                                            temp_val, powerVal,
                                             combined_partition_data,
                                             sclk, mclk, fan, str(perf).lower(),
                                             str(pwrCap),
@@ -2371,7 +2372,7 @@ def getCoarseGrainUtil(device, typeName=None):
 
             for ut_counter in utilization_counters:
                 printLog(device, utilization_counter_name[ut_counter.type], ut_counter.val)
-    
+
     :param device: DRM device identifier
     :param typeName: 'GFX Activity', 'Memory Activity'
     """
@@ -2695,10 +2696,10 @@ def showPower(deviceList):
     for device in deviceList:
         power_dict = getPower(device)
         power = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
            power = power_dict['power']
-           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power (' 
+           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power ('
                     + power_dict['unit'] + ')',
                     power)
         elif checkIfSecondaryDie(device):
@@ -2729,13 +2730,8 @@ def showPowerPlayTable(deviceList):
             printLog(device, '0: %sMhz' % (int(odvf.curr_sclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_sclk_range.upper_bound / 1000000)), None)
             printLog(device, 'OD_MCLK:', None)
+            printLog(device, '0: %sMhz' % (int(odvf.curr_mclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_mclk_range.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                printLog(device, 'OD_VDDC_CURVE:', None)
-                for position in range(3):
-                    printLog(device, '%d: %sMhz %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000),
-                    int(list(odvf.curve.vc_points)[position].voltage)), None)
             if odvf.sclk_freq_limits.lower_bound > 0 or  odvf.sclk_freq_limits.upper_bound > 0 \
                 or odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'OD_RANGE:', None)
@@ -2745,12 +2741,6 @@ def showPowerPlayTable(deviceList):
             if odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'MCLK:     %sMhz        %sMhz' % (
                 int(odvf.mclk_freq_limits.lower_bound / 1000000), int(odvf.mclk_freq_limits.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                for position in range(3):
-                    printLog(device, 'VDDC_CURVE_SCLK[%d]:     %sMhz' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000)), None)
-                    printLog(device, 'VDDC_CURVE_VOLT[%d]:     %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].voltage)), None)
     printLogSpacer()
 
 
