@@ -84,9 +84,10 @@ For example,
 
 .. NOTE::
 
-Users may need to update LD_LIBRARY_PATH and PATH accordingly. Libraries are installed under /opt/rocm/lib/ and CLI is under /opt/rocm/bin/. Typically, these actions are done by the ROCm install. 
+Users may need to update `LD_LIBRARY_PATH` and `PATH` accordingly. Libraries are installed under `/opt/rocm/lib/` and CLI is under `/opt/rocm/bin/`. Typically, these actions are done by the ROCm install. 
 
 For example,
+
 .. code-block:: shell
 
     export PATH=$PATH:/opt/rocm/bin/
