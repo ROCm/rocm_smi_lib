@@ -97,9 +97,14 @@ static std::vector<std::string> lsof(const char* filename) {
   return matched_process;
 }
 
+<<<<<<< HEAD
 // RSMI_MUTEX_THREAD_ONLY = 1 to enable thread safe mutex
 shared_mutex_t init_thread_safe_only(const char *name) {
   shared_mutex_t mutex = {nullptr, 0, nullptr, 0};
+=======
+shared_mutex_t shared_mutex_init(const char *name, mode_t mode, bool retried) {
+  shared_mutex_t mutex = {NULL, 0, NULL, 0};
+>>>>>>> upstream/master
   errno = 0;
   mutex.shm_fd = -1;
   mutex.created = 0;
@@ -257,8 +262,11 @@ shared_mutex_t shared_mutex_init(const char *name, mode_t mode, bool retried) {
     if (!retried) {
       std::vector<std::string> ids = lsof(name);
       if (ids.size() == 0) {  // no process is using it
+<<<<<<< HEAD
         fprintf(stderr, "%d re-init the mutex %s since no one use it. ret:%d ptr:%p\n",
               cur_pid, name, ret, reinterpret_cast<shared_mutex_t *>(addr)->ptr);
+=======
+>>>>>>> upstream/master
         memset(mutex_ptr, 0, sizeof(pthread_mutex_t));
         // Set mutex.created == 1 so that it can be initialized latter.
         mutex.created = 1;
