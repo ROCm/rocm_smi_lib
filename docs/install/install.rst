@@ -69,6 +69,31 @@ To build the rpm and deb packages follow the above steps with:
 
     make package
 
+To install on Ubuntu/RHEL:
+
+.. code-block:: shell
+
+    sudo dpkg -i ./<path to deb>.deb
+
+For example,
+
+.. code-block:: shell
+
+    sudo dpkg -i ./build/rocm-smi-lib_7.0.0.99999-local_amd64.deb
+    sudo rpm -ivh ./build/rocm-smi-lib-7.0.0.99999-local.x86_64.rpm
+
+.. NOTE::
+
+Users may need to update `LD_LIBRARY_PATH` and `PATH` accordingly. Libraries are installed under `/opt/rocm/lib/` and CLI is under `/opt/rocm/bin/`. Typically, these actions are done by the ROCm install. 
+
+For example,
+
+.. code-block:: shell
+
+    export PATH=$PATH:/opt/rocm/bin/
+    export LD_LIBRARY_PATH=/opt/rocm/lib/
+
+
 
 Building documentation
 =======================
