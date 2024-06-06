@@ -3,8 +3,9 @@
 
 This tool acts as a command line interface for manipulating
 and monitoring the amdgpu kernel, and is intended to replace
-and deprecate the existing rocm_smi.py CLI tool.
-It uses Ctypes to call the rocm_smi_lib API.
+and deprecate the existing rocm_smi.py CLI tool located at
+https://github.com/ROCm/ROC-smi.
+This tool uses Ctypes to call the rocm_smi_lib API.
 Recommended: At least one AMD GPU with ROCm driver installed
 Required: ROCm SMI library installed (librocm_smi64)
 """
@@ -31,7 +32,7 @@ from rsmiBindings import *
 # Patch version - Increment when adding a fix, set to 0 when minor is incremented
 # Hash  version - Shortened commit hash. Print here and not with lib for consistency with amd-smi
 SMI_MAJ = 2
-SMI_MIN = 0
+SMI_MIN = 2
 SMI_PAT = 0
 # SMI_HASH is provided by rsmiBindings
 __version__ = '%s.%s.%s+%s' % (SMI_MAJ, SMI_MIN, SMI_PAT, SMI_HASH)
@@ -157,7 +158,7 @@ def formatMatrixToJSON(deviceList, matrix, metricName):
     :param deviceList: List of DRM devices (can be a single-item list)
     :param metricName: Title of the item to print to the log
     :param matrix: symmetric matrix full of values of every permutation of DRM devices.
-    
+
     Matrix example:
 
     .. math::
@@ -286,7 +287,7 @@ def getGpuUse(device, silent=False):
     return -1
 
 
-def getId(device, silent=False):
+def getDRMDeviceId(device, silent=False):
     """ Return the hexadecimal value of a device's ID
 
     :param device: DRM device identifier
@@ -295,8 +296,10 @@ def getId(device, silent=False):
     """
     dv_id = c_short()
     ret = rocmsmi.rsmi_dev_id_get(device, byref(dv_id))
+    device_id_ret = "N/A"
     if rsmi_ret_ok(ret, device, 'get_device_id', silent):
-        return hex(dv_id.value)
+        device_id_ret = hex(dv_id.value)
+    return device_id_ret
 
 
 def getRev(device, silent=False):
@@ -308,104 +311,11 @@ def getRev(device, silent=False):
     """
     dv_rev = c_short()
     ret = rocmsmi.rsmi_dev_revision_get(device, byref(dv_rev))
-    if rsmi_ret_ok(ret, device, 'get_device_rev', silent):
-        return hex(dv_rev.value)
+    revision_ret = "N/A"
+    if rsmi_ret_ok(ret, device, 'get_device_rev', silent=silent):
+        revision_ret =  padHexValue(hex(dv_rev.value), 2)
+    return revision_ret
 
-<<<<<<< HEAD
-def getSubsystemId(device, silent=False):
-    """ Return the a device's subsystem id
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    model = create_string_buffer(MAX_BUFF_SIZE)
-    ret = rocmsmi.rsmi_dev_subsystem_name_get(device, model, MAX_BUFF_SIZE)
-    device_model = "N/A"
-    if rsmi_ret_ok(ret, device, 'get_subsystem_name', silent=silent):
-        device_model = model.value.decode()
-        # padHexValue is used for applications that expect 4-digit card models
-        device_model = padHexValue(device_model, 4)
-    return device_model
-
-def getVendor(device, silent=False):
-    """ Return the a device's vendor id
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    vendor = create_string_buffer(MAX_BUFF_SIZE)
-    device_vendor = "N/A"
-    # Retrieve card vendor
-    ret = rocmsmi.rsmi_dev_vendor_name_get(device, vendor, MAX_BUFF_SIZE)
-    # Only continue if GPU vendor is AMD
-    if rsmi_ret_ok(ret, device, 'get_vendor_name', silent) and isAmdDevice(device):
-        device_vendor = vendor.value.decode()
-    return device_vendor
-
-def getGUID(device, silent=False):
-    """ Return the uint64 value of device's GUID,
-    also referred as GPU ID - reported by KFD.
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    guid = c_uint64()
-    ret = rocmsmi.rsmi_dev_guid_get(device, byref(guid))
-    guid_ret = "N/A"
-    if rsmi_ret_ok(ret, device, 'get_gpu_id_kfd', silent=silent):
-        guid_ret = guid.value
-    return guid_ret
-
-def getTargetGfxVersion(device, silent=False):
-    """ Return the uint64 value of device's target
-    graphics version as reported by KFD
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    gfx_version = c_uint64()
-    gfx_ver_ret = "N/A"
-    ret = rocmsmi.rsmi_dev_target_graphics_version_get(device, byref(gfx_version))
-    if rsmi_ret_ok(ret, device, 'get_target_gfx_version', silent=silent):
-        gfx_ver_ret = "gfx" + str(gfx_version.value)
-    return gfx_ver_ret
-
-def getNodeId(device, silent=False):
-    """ Return the uint32 value of device's node id
-    reported by KFD.
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    node_id = c_uint32()
-    ret = rocmsmi.rsmi_dev_node_id_get(device, byref(node_id))
-    node_id_ret = "N/A"
-    if rsmi_ret_ok(ret, device, 'get_node_id_kfd', silent=silent):
-        node_id_ret = node_id.value
-    return node_id_ret
-
-def getDeviceName(device, silent=False):
-    """ Return the uint64 value of device's target
-        graphics version as reported by KFD
-
-    :param device: DRM device identifier
-    :param silent: Turn on to silence error output
-        (you plan to handle manually). Default is off.
-    """
-    # Retrieve the device series
-    series = create_string_buffer(MAX_BUFF_SIZE)
-    device_name_ret = "N/A"
-    ret = rocmsmi.rsmi_dev_name_get(device, series, MAX_BUFF_SIZE)
-    if rsmi_ret_ok(ret, device, 'get_name', silent=silent):
-        device_name_ret = series.value.decode()
-    return device_name_ret
-=======
->>>>>>> upstream/rocm-6.1.x
 
 def getMaxPower(device, silent=False):
     """ Return the maximum power cap of a given device
@@ -417,8 +327,44 @@ def getMaxPower(device, silent=False):
     power_cap = c_uint64()
     ret = rocmsmi.rsmi_dev_power_cap_get(device, 0, byref(power_cap))
     if rsmi_ret_ok(ret, device, 'get_power_cap', silent):
-        return power_cap.value / 1000000
+        # take floor of result (round down to nearest integer)
+        return float(power_cap.value / 1000000) // 1
     return -1
+
+def getAllocatedMemoryPercent(device):
+    """ Return dictionary of allocated memory (VRAM) of a given device
+        Response of allocated_memory_vram dictionary:
+
+        .. code-block:: python
+
+            {
+                'value': float allocated vram memory (floor of %) or 'N/A' (for rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED),
+                'unit': %,
+                'combined': string (eg. '30%') or 'N/A' (for rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED)
+                'ret': rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED or rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED
+            }
+
+    :param device: DRM device identifier
+    """
+    allocated_memory_vram = {
+        'value': "N/A",
+        'unit': '%',
+        'combined': "N/A",
+        'ret': rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED
+    }
+    vram_used, vram_total = getMemInfo(device, 'vram', silent=True)
+    mem_use_pct = 0
+    if vram_used is None:
+        return allocated_memory_vram
+    if vram_used != None and vram_total != None and float(vram_total) != 0:
+        # take floor of result (round down to nearest integer)
+        mem_use_pct = (100 * (float(vram_used) / float(vram_total))) // 1
+        allocated_memory_vram['value'] = mem_use_pct
+        mem_use_pct = '{:<.0f}%'.format(mem_use_pct)  # left aligned
+                                                      # values with no precision
+        allocated_memory_vram['combined'] = mem_use_pct
+        allocated_memory_vram['ret'] = rsmi_status_t.RSMI_STATUS_SUCCESS
+    return allocated_memory_vram
 
 
 def getMemInfo(device, memType, silent=False):
@@ -517,9 +463,9 @@ def getPidList():
 def getPower(device):
     """ Return dictionary of power responses.
         Response power dictionary:
-    
+
         .. code-block:: python
-        
+
             {
                 'power': string wattage response or 'N/A' (for not RSMI_STATUS_SUCCESS),
                 'power_type': power type string - 'Current Socket' or 'Average',
@@ -529,7 +475,7 @@ def getPower(device):
 
     :param device: DRM device identifier
     """
-   
+
     power = c_int64(0)
     power_type = rsmi_power_type_t()
     power_ret_dict = {
@@ -631,7 +577,7 @@ def getPowerLabel(deviceList):
         return powerLabel
     device=deviceList[0]
     power_dict = getPower(device)
-    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
         power_dict['power_type'] == 'CURRENT SOCKET'):
         powerLabel = rsmi_power_label.CURRENT_SOCKET_POWER
     return powerLabel
@@ -645,10 +591,12 @@ def getVbiosVersion(device, silent=False):
     """
     vbios = create_string_buffer(256)
     ret = rocmsmi.rsmi_dev_vbios_version_get(device, vbios, 256)
-    if ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
-        return "Unsupported"
-    elif rsmi_ret_ok(ret, device, silent=silent):
-        return vbios.value.decode()
+    vbios_ret = "N/A"
+    if rsmi_ret_ok(ret, device, silent=silent):
+        vbios_ret = vbios.value.decode()
+        if vbios_ret == "":
+            vbios_ret = "N/A"
+    return vbios_ret
 
 
 def getVersion(deviceList, component, silent=False):
@@ -984,6 +932,7 @@ def checkIfSecondaryDie(device):
         return True
     return False
 
+
 def resetClocks(deviceList):
     """ Reset clocks to default
 
@@ -1211,7 +1160,7 @@ def setClockExtremum(deviceList, level,  clkType, clkValue, autoRespond):
     if level == "max":
         point = 1
     try:
-        int(clkValue) 
+        int(clkValue)
     except ValueError:
         printErrLog(None, 'Unable to set %s' % (clkValue))
         logging.error('%s is not an integer', clkValue)
@@ -1906,10 +1855,11 @@ def showAllConcise(deviceList):
     deviceList.sort()
     available_temp_type = getTemperatureLabel(deviceList)
     temp_type = "(" + available_temp_type.capitalize() + ")"
-    header=['Device', '[Model : Revision]', 'Temp', 'Power', 'Partitions',
+    header=['Device', 'Node','IDs','', 'Temp', 'Power', 'Partitions',
             'SCLK', 'MCLK', 'Fan', 'Perf', 'PwrCap', 'VRAM%', 'GPU%']
-    subheader = ['', 'Name (20 chars)', temp_type, getPowerLabel(deviceList),
-                 '(Mem, Compute)', '', '', '', '', '', '', '']
+    subheader = ['', '','(DID,', 'GUID)', temp_type, getPowerLabel(deviceList),
+                 '(Mem, Compute, ID)',
+                   '', '', '', '', '', '', '']
     # add additional spaces to match header
     for idx, item in enumerate(subheader):
         header_size = len(header[idx])
@@ -1926,14 +1876,12 @@ def showAllConcise(deviceList):
     values = {}
     degree_sign = u'\N{DEGREE SIGN}'
     for device in deviceList:
-        gpu_dev_product_info = getDevProductInfo(device, silent)
-        gpu_dev_product_info_names = list(gpu_dev_product_info[device])
         temp_val = str(getTemp(device, available_temp_type, silent))
         if temp_val != 'N/A':
             temp_val += degree_sign + 'C'
         power_dict = getPower(device)
         powerVal = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
             if power_dict['power'] != 0:
                 powerVal = power_dict['power'] + power_dict['unit']
@@ -1956,24 +1904,18 @@ def showAllConcise(deviceList):
             gpu_busy = str(getGpuUse(device, silent)) + '%'
         else:
             gpu_busy = 'Unsupported'
-        vram_used, vram_total = getMemInfo(device, 'vram', silent)
-        mem_use_pct = 0
-        if vram_used is None:
-            mem_use_pct='Unsupported'
-        if vram_used != None and vram_total != None and float(vram_total) != 0:
-            mem_use_pct = '% 3.0f%%' % (100 * (float(vram_used) / float(vram_total)))
+        allocated_mem_percent = getAllocatedMemoryPercent(device)
 
-        gpu_dev_product_info_top_name = gpu_dev_product_info_names[0]
-        if (len(gpu_dev_product_info_names) > 1):
-            values['card%s_Info' % (str(device))] = ['', gpu_dev_product_info_names[0], '', '', '',
-                                                    '', '', '',
-                                                    '', '', '', '']
-            gpu_dev_product_info_top_name = gpu_dev_product_info_names[1]
-
-        values['card%s' % (str(device))] = [device, gpu_dev_product_info_top_name, temp_val,
-                                            powerVal, combined_partition, sclk, mclk,
-                                            fan, str(perf).lower(), pwrCap, mem_use_pct,
-                                            gpu_busy]
+        # Top Row - per device data
+        values['card%s' % (str(device))] = [device, getNodeId(device),
+                                            str(getDRMDeviceId(device)) + ", ",
+                                            str(getGUID(device)),
+                                            temp_val, powerVal,
+                                            combined_partition_data,
+                                            sclk, mclk, fan, str(perf).lower(),
+                                            str(pwrCap),
+                                            allocated_mem_percent['combined'],
+                                            str(gpu_busy)]
 
     val_widths = {}
     for device in deviceList:
@@ -1997,18 +1939,13 @@ def showAllConcise(deviceList):
     for device in deviceList:
         printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
                                zip(range(len(max_widths)), values['card%s' % (str(device))])), None)
-        gpu_dev_product_info = getDevProductInfo(device, silent)
-        gpu_dev_product_info_names = list(gpu_dev_product_info[device])
-        if (len(gpu_dev_product_info_names) > 1):
-            printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
-                                zip(range(len(max_widths)), values['card%s_Info' % (str(device))])), None)
 
     printLogSpacer(contentSizeToFit=len(header_output))
     printLogSpacer(footerString, contentSizeToFit=len(header_output))
 
 
 def showAllConciseHw(deviceList):
-    """ Display critical Hardware info for all devices in a concise format
+    """ Display critical Hardware info
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
@@ -2016,43 +1953,19 @@ def showAllConciseHw(deviceList):
     if PRINT_JSON:
         print('ERROR: Cannot print JSON/CSV output for concise hardware output')
         sys.exit(1)
-<<<<<<< HEAD
     header = ['GPU', 'NODE', 'DID', 'GUID', 'GFX VER', 'GFX RAS', 'SDMA RAS', 'UMC RAS', 'VBIOS', 'BUS'
                , 'PARTITION ID']
-=======
-    printLogSpacer(' Concise Hardware Info ')
-    header = ['GPU', 'DID', 'DREV', 'GFX RAS', 'SDMA RAS', 'UMC RAS', 'VBIOS', 'BUS']
->>>>>>> upstream/rocm-6.1.x
     head_widths = [len(head) + 2 for head in header]
     values = {}
     silent = True
     for device in deviceList:
-<<<<<<< HEAD
-        did = getDRMDeviceId(device, silent)
-        nodeid = getNodeId(device, silent)
-        guid = getGUID(device, silent)
-        partition_id = getPartitionId(device, silent)
-        gfxVer = getTargetGfxVersion(device, silent)
-=======
-        gpuid = getId(device, silent)
-        if str(gpuid).startswith('0x'):
-            gpuid = str(gpuid)[2:]
-        gpurev = getRev(device, silent)
-        if str(gpurev).startswith('0x'):
-            gpurev = str(gpurev)[2:]
-
->>>>>>> upstream/rocm-6.1.x
         gfxRas = getRasEnablement(device, 'GFX', silent)
         sdmaRas = getRasEnablement(device, 'SDMA', silent)
         umcRas = getRasEnablement(device, 'UMC', silent)
         vbios = getVbiosVersion(device, silent)
         bus = getBus(device, silent)
-<<<<<<< HEAD
         values['card%s' % (str(device))] = [device, nodeid, did, guid, gfxVer, gfxRas, sdmaRas,
                                             umcRas, vbios, bus, partition_id]
-=======
-        values['card%s' % (str(device))] = [device, gpuid, gpurev, gfxRas, sdmaRas, umcRas, vbios, bus]
->>>>>>> upstream/rocm-6.1.x
     val_widths = {}
     for device in deviceList:
         val_widths[device] = [len(str(val)) + 2 for val in values['card%s' % (str(device))]]
@@ -2060,11 +1973,25 @@ def showAllConciseHw(deviceList):
     for device in deviceList:
         for col in range(len(val_widths[device])):
             max_widths[col] = max(max_widths[col], val_widths[device][col])
-    printLog(None, "".join(word.ljust(max_widths[col]) for col, word in zip(range(len(max_widths)), header)), None)
+    device_output=""
     for device in deviceList:
-        printLog(None, "".join(str(word).ljust(max_widths[col]) for col, word in
-                               zip(range(len(max_widths)), values['card%s' % (str(device))])), None)
-    printLogSpacer()
+        if (device + 1 != len(deviceList)):
+            device_output += "".join(str(word).ljust(max_widths[col]) for col, word in
+                               zip(range(len(max_widths)), values['card%s' % (str(device))])) + "\n"
+        else:
+            device_output += "".join(str(word).ljust(max_widths[col]) for col, word in
+                               zip(range(len(max_widths)), values['card%s' % (str(device))]))
+
+    #################################
+    # Display concise hardware info #
+    #################################
+    header_output = "".join(word.ljust(max_widths[col]) for col, word in zip(range(len(max_widths)), header))
+    printLogSpacer(headerString, contentSizeToFit=len(header_output))
+    printLogSpacer(' Concise Hardware Info ', contentSizeToFit=len(header_output))
+    printLog(None, header_output, None)
+    printLog(None, device_output, None)
+    printLogSpacer(fill='=', contentSizeToFit=len(header_output))
+    printLogSpacer(footerString, contentSizeToFit=len(header_output))
 
 
 def showBus(deviceList):
@@ -2348,7 +2275,7 @@ def getCoarseGrainUtil(device, typeName=None):
 
             for ut_counter in utilization_counters:
                 printLog(device, utilization_counter_name[ut_counter.type], ut_counter.val)
-    
+
     :param device: DRM device identifier
     :param typeName: 'GFX Activity', 'Memory Activity'
     """
@@ -2419,14 +2346,17 @@ def showEnergy(deviceList):
 
 
 def showId(deviceList):
-    """ Display the device ID for a list of devices
+    """ Display the device IDs for a list of devices
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
     printLogSpacer(' ID ')
     for device in deviceList:
-        printLog(device, 'Device ID', getId(device))
-        printLog(device, 'Device Rev', getRev(device))
+        printLog(device, 'Device Name', '\t\t' + str(getDeviceName(device)))
+        printLog(device, 'Device ID', '\t\t' + str(getDRMDeviceId(device)))
+        printLog(device, 'Device Rev', '\t\t' + str(getRev(device)))
+        printLog(device, 'Subsystem ID', '\t' + str(getSubsystemId(device)))
+        printLog(device, 'GUID', '\t\t' + str(getGUID(device)))
     printLogSpacer()
 
 
@@ -2480,9 +2410,12 @@ def showMemUse(deviceList):
     avgMemBandwidth = c_uint16()
     printLogSpacer(' Current Memory Use ')
     for device in deviceList:
+        allocated_mem_percent = getAllocatedMemoryPercent(device)
+        printLog(device, 'GPU Memory Allocated (VRAM%)',
+                 int(allocated_mem_percent['value']))
         ret = rocmsmi.rsmi_dev_memory_busy_percent_get(device, byref(memoryUse))
         if rsmi_ret_ok(ret, device, '% memory use'):
-            printLog(device, 'GPU memory use (%)', memoryUse.value)
+            printLog(device, 'GPU Memory Read/Write Activity (%)', memoryUse.value)
         util_counters = getCoarseGrainUtil(device, "Memory Activity")
         if util_counters != -1:
             for ut_counter in util_counters:
@@ -2619,6 +2552,7 @@ def showPids(verbose):
         vramUsage = 'UNKNOWN'
         sdmaUsage = 'UNKNOWN'
         cuOccupancy = 'UNKNOWN'
+        cuOccupancyInvalid = 0xFFFFFFFF
         dv_indices = (c_uint32 * num_devices.value)()
         ret = rocmsmi.rsmi_compute_process_gpus_get(int(pid), None, byref(num_devices))
         if rsmi_ret_ok(ret, metric='get_gpu_compute_process'):
@@ -2634,7 +2568,8 @@ def showPids(verbose):
                 if rsmi_ret_ok(ret, metric='get_compute_process_info_by_pid'):
                     vramUsage = proc.vram_usage
                     sdmaUsage = proc.sdma_usage
-                    cuOccupancy = proc.cu_occupancy
+                    if proc.cu_occupancy != cuOccupancyInvalid:
+                        cuOccupancy = proc.cu_occupancy
                 else:
                     logging.debug('Unable to fetch process info by PID')
                 dataArray.append([pid, getProcessName(pid), str(gpuNumber), str(vramUsage), str(sdmaUsage), str(cuOccupancy)])
@@ -2643,7 +2578,8 @@ def showPids(verbose):
             if rsmi_ret_ok(ret, metric='get_compute_process_info_by_pid'):
                 vramUsage = proc.vram_usage
                 sdmaUsage = proc.sdma_usage
-                cuOccupancy = proc.cu_occupancy
+                if proc.cu_occupancy != cuOccupancyInvalid:
+                    cuOccupancy = proc.cu_occupancy
             else:
                 logging.debug('Unable to fetch process info by PID')
             dataArray.append([pid, getProcessName(pid), str(gpuNumber), str(vramUsage), str(sdmaUsage), str(cuOccupancy)])
@@ -2663,10 +2599,10 @@ def showPower(deviceList):
     for device in deviceList:
         power_dict = getPower(device)
         power = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
            power = power_dict['power']
-           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power (' 
+           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power ('
                     + power_dict['unit'] + ')',
                     power)
         elif checkIfSecondaryDie(device):
@@ -2697,13 +2633,8 @@ def showPowerPlayTable(deviceList):
             printLog(device, '0: %sMhz' % (int(odvf.curr_sclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_sclk_range.upper_bound / 1000000)), None)
             printLog(device, 'OD_MCLK:', None)
+            printLog(device, '0: %sMhz' % (int(odvf.curr_mclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_mclk_range.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                printLog(device, 'OD_VDDC_CURVE:', None)
-                for position in range(3):
-                    printLog(device, '%d: %sMhz %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000),
-                    int(list(odvf.curve.vc_points)[position].voltage)), None)
             if odvf.sclk_freq_limits.lower_bound > 0 or  odvf.sclk_freq_limits.upper_bound > 0 \
                 or odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'OD_RANGE:', None)
@@ -2713,133 +2644,42 @@ def showPowerPlayTable(deviceList):
             if odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'MCLK:     %sMhz        %sMhz' % (
                 int(odvf.mclk_freq_limits.lower_bound / 1000000), int(odvf.mclk_freq_limits.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                for position in range(3):
-                    printLog(device, 'VDDC_CURVE_SCLK[%d]:     %sMhz' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000)), None)
-                    printLog(device, 'VDDC_CURVE_VOLT[%d]:     %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].voltage)), None)
     printLogSpacer()
 
 
-def showProductName(deviceList):
-    """ Show the requested product name for a list of devices
+def showProduct(deviceList):
+    """ Show the requested product information for a list of devices
 
     :param deviceList: List of DRM devices (can be a single-item list)
     """
-    series = create_string_buffer(256)
-    model = create_string_buffer(256)
-    vendor = create_string_buffer(256)
-    vbios = create_string_buffer(256)
-    # sku = create_string_buffer(256)
     printLogSpacer(' Product Info ')
     for device in deviceList:
-        # Retrieve card vendor
-        ret = rocmsmi.rsmi_dev_vendor_name_get(device, vendor, 256)
         # Only continue if GPU vendor is AMD
-        if rsmi_ret_ok(ret, device, 'get_vendor_name') and isAmdDevice(device):
-            try:
-                device_vendor = vendor.value.decode()
-            except UnicodeDecodeError:
-                printErrLog(device, "Unable to read device vendor")
-                device_vendor = "N/A"
-            # Retrieve the device series
-            ret = rocmsmi.rsmi_dev_name_get(device, series, 256)
-            if rsmi_ret_ok(ret, device, 'get_name'):
-                try:
-                    device_series = series.value.decode()
-                    printLog(device, 'Card series', '\t\t' + device_series)
-                except UnicodeDecodeError:
-                    printErrLog(device, "Unable to read card series")
-            # Retrieve the device model
-            ret = rocmsmi.rsmi_dev_subsystem_name_get(device, model, 256)
-            if rsmi_ret_ok(ret, device, 'get_subsystem_name'):
-                try:
-                    device_model = model.value.decode()
-                    # padHexValue is used for applications that expect 4-digit card models
-                    printLog(device, 'Card model', '\t\t' + padHexValue(device_model, 4))
-                except UnicodeDecodeError:
-                    printErrLog(device, "Unable to read device model")
-            printLog(device, 'Card vendor', '\t\t' + device_vendor)
+        if isAmdDevice(device):
             # TODO: Retrieve the SKU using 'rsmi_dev_sku_get' from the LIB
-            # ret = rocmsmi.rsmi_dev_sku_get(device, sku, 256)
-            # if rsmi_ret_ok(ret, device) and sku.value.decode():
-            #     device_sku = sku.value.decode()
-            # Retrieve the device SKU as a substring from VBIOS
-            device_sku = ""
-            ret = rocmsmi.rsmi_dev_vbios_version_get(device, vbios, 256)
-            if ret == rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED:
-                device_sku = "Unsupported"
-                printLog(device, 'Card SKU', '\t\t' + device_sku)
-            elif rsmi_ret_ok(ret, device, 'get_vbios_version') and vbios.value.decode():
-                # Device SKU is just the characters in between the two '-' in vbios_version
-                if vbios.value.decode().count('-') == 2 and len(str(vbios.value.decode().split('-')[1])) > 1:
-                    device_sku = vbios.value.decode().split('-')[1]
-                else:
-                    device_sku = 'unknown'
-                printLog(device, 'Card SKU', '\t\t' + device_sku)
-            else:
-                printErrLog(device, "Unable to decode VBIOS value for device SKU")
+            # Device SKU is just the characters in between the two '-' in vbios_version
+            vbios = getVbiosVersion(device, True)
+            device_sku = "N/A"
+            if vbios.count('-') == 2 and len(str(vbios.split('-')[1])) > 1:
+                device_sku = vbios.split('-')[1]
+
+            printLog(device, 'Card Series', '\t\t' + str(getDeviceName(device)))
+            # Retrieve device ID from DRM and KFD
+            printLog(device, 'Card Model', str('\t\t' + getDRMDeviceId(device)))
+            printLog(device, 'Card Vendor', '\t\t' + getVendor(device))
+            printLog(device, 'Card SKU', '\t\t' + device_sku)
+            printLog(device, 'Subsystem ID', str('\t' + getSubsystemId(device)))
+            printLog(device, 'Device Rev', str('\t\t' + getRev(device)))
+            printLog(device, 'Node ID', str('\t\t' + str(getNodeId(device))))
+            printLog(device, 'GUID', str('\t\t' + str(getGUID(device))))
+            printLog(device, 'GFX Version', str('\t\t' + getTargetGfxVersion(device)))
+
         else:
+            vendor = getVendor(device)
             printLog(device, 'Incompatible device.\n' \
                              'GPU[%s]\t\t: Expected vendor name: Advanced Micro Devices, Inc. [AMD/ATI]\n' \
-                             'GPU[%s]\t\t: Actual vendor name' % (device, device), vendor.value.decode())
+                             'GPU[%s]\t\t: Actual vendor name' % (device, device), vendor)
     printLogSpacer()
-
-
-def getDevProductInfo(device, silent=False):
-    """ Show the requested product name for the device requested
-
-    @param device: Device we want to get the info for
-    @param silent=Turn on to silence error output
-    (you plan to handle manually). Default is off.
-    """
-
-    # Retrieve card vendor
-    MAX_DESC_SIZE = 20
-    device_series = "N/A"
-    device_model = "N/A"
-    gpu_revision = "N/A"
-    device_list = {}
-    vendor = create_string_buffer(MAX_BUFF_SIZE)
-    ret = rocmsmi.rsmi_dev_vendor_name_get(device, vendor, MAX_BUFF_SIZE)
-    # Only continue if GPU vendor is AMD
-    if rsmi_ret_ok(ret, device, 'get_vendor_name', silent) and isAmdDevice(device):
-        # Retrieve the device series
-        series = create_string_buffer(MAX_BUFF_SIZE)
-        ret = rocmsmi.rsmi_dev_name_get(device, series, MAX_BUFF_SIZE)
-        if rsmi_ret_ok(ret, device, 'get_name', silent):
-            try:
-                device_series = series.value.decode()
-            except UnicodeDecodeError:
-                if not silent:
-                    printErrLog(device, "Unable to read card series")
-
-        # Retrieve the device model
-        model = create_string_buffer(MAX_BUFF_SIZE)
-        ret = rocmsmi.rsmi_dev_subsystem_name_get(device, model, MAX_BUFF_SIZE)
-        if rsmi_ret_ok(ret, device, 'get_subsystem_name', silent):
-            try:
-                device_model = model.value.decode()
-                device_model = padHexValue(device_model, 4)
-            except UnicodeDecodeError:
-                if not silent:
-                    printErrLog(device, "Unable to read device model")
-
-            try:
-                gpu_revision = padHexValue(getRev(device), 2)
-            except Exception as exc:
-                if not silent:
-                    printErrLog(device, "Unable to read card revision %s" % (exc))
-
-        device_series_str = str(device_series[:MAX_DESC_SIZE])
-        device_series_str = device_series_str.ljust(MAX_DESC_SIZE, ' ')
-        device_model_str  = str(('[' + device_model + ' : ' + gpu_revision + ']'))
-        device_model_str  = str(device_model_str[:MAX_DESC_SIZE])
-        device_model_str  = device_model_str.ljust(MAX_DESC_SIZE, ' ')
-        device_list = {device : [device_series_str, device_model_str]}
-
-    return device_list
 
 
 def showProfile(deviceList):
@@ -3026,7 +2866,7 @@ def showVbiosVersion(deviceList):
     """
     printLogSpacer(' VBIOS ')
     for device in deviceList:
-        printLog(device, 'VBIOS version', getVbiosVersion(device))
+        printLog(device, 'VBIOS version', getVbiosVersion(device, silent=True))
     printLogSpacer()
 
 
@@ -3067,7 +2907,7 @@ def showEvents(deviceList, eventTypes):
     if len(eventTypeList) == 0:
         eventTypeList = notification_type_names
         print2DArray([['DEVICE\t', 'TIME\t', 'TYPE\t', 'DESCRIPTION']])
-        # Create a seperate thread for each GPU
+        # Create a separate thread for each GPU
         for device in deviceList:
             try:
                 _thread.start_new_thread(printEventList, (device, 1000, eventTypeList))
@@ -3768,7 +3608,7 @@ def rsmi_ret_ok(my_ret, device=None, metric=None, silent=False):
     :param device: DRM device identifier
     :param my_ret: Return of RSMI call (rocm_smi_lib API)
     :param metric: Parameter of GPU currently being analyzed
-    :param silent: Echo verbose error reponse.
+    :param silent: Echo verbose error response.
         True silences err output, False does not silence err output (default).
     """
     global RETCODE
@@ -3856,9 +3696,10 @@ def save(deviceList, savefilepath):
 
 # The code below is for when this script is run as an executable instead of when imported as a module
 def isConciseInfoRequested(args):
-    return len(sys.argv) == 1 or \
+    is_concise_req = len(sys.argv) == 1 or \
             len(sys.argv) == 2 and (args.alldevices or (args.json or args.csv)) or \
             len(sys.argv) == 3 and (args.alldevices and (args.json or args.csv))
+    return is_concise_req
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -3884,7 +3725,7 @@ if __name__ == '__main__':
     groupDisplayOpt.add_argument('--showhw', help='Show Hardware details', action='store_true')
     groupDisplayOpt.add_argument('-a', '--showallinfo', help='Show Temperature, Fan and Clock values',
                                  action='store_true')
-    groupDisplayTop.add_argument('-i', '--showid', help='Show DEVICE ID', action='store_true')
+    groupDisplayTop.add_argument('-i', '--showid', help='Show DEVICE IDs', action='store_true')
     groupDisplayTop.add_argument('-v', '--showvbios', help='Show VBIOS version', action='store_true')
     groupDisplayTop.add_argument('-e', '--showevents', help='Show event list', metavar='EVENT', type=str, nargs='*')
     groupDisplayTop.add_argument('--showdriverversion', help='Show kernel driver version', action='store_true')
@@ -3893,7 +3734,7 @@ if __name__ == '__main__':
     groupDisplayTop.add_argument('--showmclkrange', help='Show mclk range', action='store_true')
     groupDisplayTop.add_argument('--showmemvendor', help='Show GPU memory vendor', action='store_true')
     groupDisplayTop.add_argument('--showsclkrange', help='Show sclk range', action='store_true')
-    groupDisplayTop.add_argument('--showproductname', help='Show SKU/Vendor name', action='store_true')
+    groupDisplayTop.add_argument('--showproductname', help='Show product details', action='store_true')
     groupDisplayTop.add_argument('--showserial', help='Show GPU\'s Serial Number', action='store_true')
     groupDisplayTop.add_argument('--showuniqueid', help='Show GPU\'s Unique ID', action='store_true')
     groupDisplayTop.add_argument('--showvoltagerange', help='Show voltage range', action='store_true')
@@ -3904,7 +3745,7 @@ if __name__ == '__main__':
     groupDisplayPages.add_argument('--showretiredpages', help='Show retired pages', action='store_true')
     groupDisplayPages.add_argument('--showunreservablepages', help='Show unreservable pages', action='store_true')
     groupDisplayHw.add_argument('-f', '--showfan', help='Show current fan speed', action='store_true')
-    groupDisplayHw.add_argument('-P', '--showpower', help='Show current Average Graphics Package Power Consumption',
+    groupDisplayHw.add_argument('-P', '--showpower', help='Show current average or instant socket graphics package power consumption',
                                 action='store_true')
     groupDisplayHw.add_argument('-t', '--showtemp', help='Show current temperature', action='store_true')
     groupDisplayHw.add_argument('-u', '--showuse', help='Show current GPU use', action='store_true')
@@ -3953,7 +3794,7 @@ if __name__ == '__main__':
     groupActionReset.add_argument('--resetfans', help='Reset fans to automatic (driver) control', action='store_true')
     groupActionReset.add_argument('--resetprofile', help='Reset Power Profile back to default', action='store_true')
     groupActionReset.add_argument('--resetpoweroverdrive',
-                                  help='Set the maximum GPU power back to the device deafult state',
+                                  help='Set the maximum GPU power back to the device default state',
                                   action='store_true')
     groupActionReset.add_argument('--resetxgmierr', help='Reset XGMI error count', action='store_true')
     groupActionReset.add_argument('--resetperfdeterminism', help='Disable performance determinism', action='store_true')
@@ -4005,7 +3846,7 @@ if __name__ == '__main__':
     groupAction.add_argument('--rasdisable', help='Disable RAS for specified block and error type', type=str, nargs=2,
                              metavar=('BLOCK', 'ERRTYPE'))
     groupAction.add_argument('--rasinject',
-                             help='Inject RAS poison for specified block (ONLY WORKS ON UNSECURE BOARDS)', type=str,
+                             help='Inject RAS poison for specified block (ONLY WORKS ON UNSECURED BOARDS)', type=str,
                              metavar='BLOCK', nargs=1)
     groupActionGpuReset.add_argument('--gpureset', help='Reset specified GPU (One GPU must be specified)',
                                      action='store_true')
@@ -4077,7 +3918,7 @@ if __name__ == '__main__':
 
     if not PRINT_JSON:
         print('\n')
-    if not isConciseInfoRequested(args):
+    if not isConciseInfoRequested(args) and args.showhw == False:
         printLogSpacer(headerString)
 
     if args.showallinfo:
@@ -4204,7 +4045,7 @@ if __name__ == '__main__':
     if args.showfwinfo or str(args.showfwinfo) == '[]':
         showFwInfo(deviceList, args.showfwinfo)
     if args.showproductname:
-        showProductName(deviceList)
+        showProduct(deviceList)
     if args.showxgmierr:
         showXgmiErr(deviceList)
     if args.shownodesbw:
@@ -4341,7 +4182,7 @@ if __name__ == '__main__':
                 devCsv = formatCsv(deviceList)
                 print(devCsv)
 
-    if not isConciseInfoRequested(args):
+    if not isConciseInfoRequested(args) and args.showhw == False:
         printLogSpacer(footerString)
 
     rsmi_ret_ok(rocmsmi.rsmi_shut_down())
