@@ -3,8 +3,9 @@
 
 This tool acts as a command line interface for manipulating
 and monitoring the amdgpu kernel, and is intended to replace
-and deprecate the existing rocm_smi.py CLI tool.
-It uses Ctypes to call the rocm_smi_lib API.
+and deprecate the existing rocm_smi.py CLI tool located at
+https://github.com/ROCm/ROC-smi.
+This tool uses Ctypes to call the rocm_smi_lib API.
 Recommended: At least one AMD GPU with ROCm driver installed
 Required: ROCm SMI library installed (librocm_smi64)
 """
@@ -31,7 +32,7 @@ from rsmiBindings import *
 # Patch version - Increment when adding a fix, set to 0 when minor is incremented
 # Hash  version - Shortened commit hash. Print here and not with lib for consistency with amd-smi
 SMI_MAJ = 2
-SMI_MIN = 0
+SMI_MIN = 2
 SMI_PAT = 0
 # SMI_HASH is provided by rsmiBindings
 __version__ = '%s.%s.%s+%s' % (SMI_MAJ, SMI_MIN, SMI_PAT, SMI_HASH)
@@ -157,7 +158,7 @@ def formatMatrixToJSON(deviceList, matrix, metricName):
     :param deviceList: List of DRM devices (can be a single-item list)
     :param metricName: Title of the item to print to the log
     :param matrix: symmetric matrix full of values of every permutation of DRM devices.
-    
+
     Matrix example:
 
     .. math::
@@ -418,8 +419,44 @@ def getMaxPower(device, silent=False):
     power_cap = c_uint64()
     ret = rocmsmi.rsmi_dev_power_cap_get(device, 0, byref(power_cap))
     if rsmi_ret_ok(ret, device, 'get_power_cap', silent):
-        return power_cap.value / 1000000
+        # take floor of result (round down to nearest integer)
+        return float(power_cap.value / 1000000) // 1
     return -1
+
+def getAllocatedMemoryPercent(device):
+    """ Return dictionary of allocated memory (VRAM) of a given device
+        Response of allocated_memory_vram dictionary:
+
+        .. code-block:: python
+
+            {
+                'value': float allocated vram memory (floor of %) or 'N/A' (for rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED),
+                'unit': %,
+                'combined': string (eg. '30%') or 'N/A' (for rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED)
+                'ret': rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED or rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED
+            }
+
+    :param device: DRM device identifier
+    """
+    allocated_memory_vram = {
+        'value': "N/A",
+        'unit': '%',
+        'combined': "N/A",
+        'ret': rsmi_status_t.RSMI_STATUS_NOT_SUPPORTED
+    }
+    vram_used, vram_total = getMemInfo(device, 'vram', silent=True)
+    mem_use_pct = 0
+    if vram_used is None:
+        return allocated_memory_vram
+    if vram_used != None and vram_total != None and float(vram_total) != 0:
+        # take floor of result (round down to nearest integer)
+        mem_use_pct = (100 * (float(vram_used) / float(vram_total))) // 1
+        allocated_memory_vram['value'] = mem_use_pct
+        mem_use_pct = '{:<.0f}%'.format(mem_use_pct)  # left aligned
+                                                      # values with no precision
+        allocated_memory_vram['combined'] = mem_use_pct
+        allocated_memory_vram['ret'] = rsmi_status_t.RSMI_STATUS_SUCCESS
+    return allocated_memory_vram
 
 
 def getMemInfo(device, memType, silent=False):
@@ -518,9 +555,9 @@ def getPidList():
 def getPower(device):
     """ Return dictionary of power responses.
         Response power dictionary:
-    
+
         .. code-block:: python
-        
+
             {
                 'power': string wattage response or 'N/A' (for not RSMI_STATUS_SUCCESS),
                 'power_type': power type string - 'Current Socket' or 'Average',
@@ -530,7 +567,7 @@ def getPower(device):
 
     :param device: DRM device identifier
     """
-   
+
     power = c_int64(0)
     power_type = rsmi_power_type_t()
     power_ret_dict = {
@@ -632,7 +669,7 @@ def getPowerLabel(deviceList):
         return powerLabel
     device=deviceList[0]
     power_dict = getPower(device)
-    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+    if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
         power_dict['power_type'] == 'CURRENT SOCKET'):
         powerLabel = rsmi_power_label.CURRENT_SOCKET_POWER
     return powerLabel
@@ -987,6 +1024,7 @@ def checkIfSecondaryDie(device):
         return True
     return False
 
+
 def resetClocks(deviceList):
     """ Reset clocks to default
 
@@ -1214,7 +1252,7 @@ def setClockExtremum(deviceList, level,  clkType, clkValue, autoRespond):
     if level == "max":
         point = 1
     try:
-        int(clkValue) 
+        int(clkValue)
     except ValueError:
         printErrLog(None, 'Unable to set %s' % (clkValue))
         logging.error('%s is not an integer', clkValue)
@@ -1935,7 +1973,7 @@ def showAllConcise(deviceList):
             temp_val += degree_sign + 'C'
         power_dict = getPower(device)
         powerVal = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
             if power_dict['power'] != 0:
                 powerVal = power_dict['power'] + power_dict['unit']
@@ -1958,24 +1996,17 @@ def showAllConcise(deviceList):
             gpu_busy = str(getGpuUse(device, silent)) + '%'
         else:
             gpu_busy = 'Unsupported'
-        vram_used, vram_total = getMemInfo(device, 'vram', silent)
-        mem_use_pct = 0
-        if vram_used is None:
-            mem_use_pct='Unsupported'
-        if vram_used != None and vram_total != None and float(vram_total) != 0:
-            mem_use_pct = round(float(100 * (float(vram_used) / float(vram_total))))
-            mem_use_pct = '{:<.0f}%'.format(mem_use_pct)  # left aligned
-                                                          # values with no precision
+        allocated_mem_percent = getAllocatedMemoryPercent(device)
 
         # Top Row - per device data
         values['card%s' % (str(device))] = [device, getNodeId(device),
                                             str(getDRMDeviceId(device)) + ", ",
                                             str(getGUID(device)),
-                                            temp_val, powerVal, 
+                                            temp_val, powerVal,
                                             combined_partition_data,
                                             sclk, mclk, fan, str(perf).lower(),
                                             str(pwrCap),
-                                            str(mem_use_pct),
+                                            allocated_mem_percent['combined'],
                                             str(gpu_busy)]
 
     val_widths = {}
@@ -2341,7 +2372,7 @@ def getCoarseGrainUtil(device, typeName=None):
 
             for ut_counter in utilization_counters:
                 printLog(device, utilization_counter_name[ut_counter.type], ut_counter.val)
-    
+
     :param device: DRM device identifier
     :param typeName: 'GFX Activity', 'Memory Activity'
     """
@@ -2476,9 +2507,12 @@ def showMemUse(deviceList):
     avgMemBandwidth = c_uint16()
     printLogSpacer(' Current Memory Use ')
     for device in deviceList:
+        allocated_mem_percent = getAllocatedMemoryPercent(device)
+        printLog(device, 'GPU Memory Allocated (VRAM%)',
+                 int(allocated_mem_percent['value']))
         ret = rocmsmi.rsmi_dev_memory_busy_percent_get(device, byref(memoryUse))
         if rsmi_ret_ok(ret, device, '% memory use'):
-            printLog(device, 'GPU memory use (%)', memoryUse.value)
+            printLog(device, 'GPU Memory Read/Write Activity (%)', memoryUse.value)
         util_counters = getCoarseGrainUtil(device, "Memory Activity")
         if util_counters != -1:
             for ut_counter in util_counters:
@@ -2662,10 +2696,10 @@ def showPower(deviceList):
     for device in deviceList:
         power_dict = getPower(device)
         power = 'N/A'
-        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and 
+        if (power_dict['ret'] == rsmi_status_t.RSMI_STATUS_SUCCESS and
             power_dict['power_type'] != 'INVALID_POWER_TYPE'):
            power = power_dict['power']
-           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power (' 
+           printLog(device, power_dict['power_type'].title() + ' Graphics Package Power ('
                     + power_dict['unit'] + ')',
                     power)
         elif checkIfSecondaryDie(device):
@@ -2696,13 +2730,8 @@ def showPowerPlayTable(deviceList):
             printLog(device, '0: %sMhz' % (int(odvf.curr_sclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_sclk_range.upper_bound / 1000000)), None)
             printLog(device, 'OD_MCLK:', None)
+            printLog(device, '0: %sMhz' % (int(odvf.curr_mclk_range.lower_bound / 1000000)), None)
             printLog(device, '1: %sMhz' % (int(odvf.curr_mclk_range.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                printLog(device, 'OD_VDDC_CURVE:', None)
-                for position in range(3):
-                    printLog(device, '%d: %sMhz %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000),
-                    int(list(odvf.curve.vc_points)[position].voltage)), None)
             if odvf.sclk_freq_limits.lower_bound > 0 or  odvf.sclk_freq_limits.upper_bound > 0 \
                 or odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'OD_RANGE:', None)
@@ -2712,12 +2741,6 @@ def showPowerPlayTable(deviceList):
             if odvf.mclk_freq_limits.lower_bound >0 or odvf.mclk_freq_limits.upper_bound > 0:
                 printLog(device, 'MCLK:     %sMhz        %sMhz' % (
                 int(odvf.mclk_freq_limits.lower_bound / 1000000), int(odvf.mclk_freq_limits.upper_bound / 1000000)), None)
-            if odvf.num_regions > 0:
-                for position in range(3):
-                    printLog(device, 'VDDC_CURVE_SCLK[%d]:     %sMhz' % (
-                    position, int(list(odvf.curve.vc_points)[position].frequency / 1000000)), None)
-                    printLog(device, 'VDDC_CURVE_VOLT[%d]:     %smV' % (
-                    position, int(list(odvf.curve.vc_points)[position].voltage)), None)
     printLogSpacer()
 
 
@@ -2981,7 +3004,7 @@ def showEvents(deviceList, eventTypes):
     if len(eventTypeList) == 0:
         eventTypeList = notification_type_names
         print2DArray([['DEVICE\t', 'TIME\t', 'TYPE\t', 'DESCRIPTION']])
-        # Create a seperate thread for each GPU
+        # Create a separate thread for each GPU
         for device in deviceList:
             try:
                 _thread.start_new_thread(printEventList, (device, 1000, eventTypeList))
@@ -3682,7 +3705,7 @@ def rsmi_ret_ok(my_ret, device=None, metric=None, silent=False):
     :param device: DRM device identifier
     :param my_ret: Return of RSMI call (rocm_smi_lib API)
     :param metric: Parameter of GPU currently being analyzed
-    :param silent: Echo verbose error reponse.
+    :param silent: Echo verbose error response.
         True silences err output, False does not silence err output (default).
     """
     global RETCODE
@@ -3868,7 +3891,7 @@ if __name__ == '__main__':
     groupActionReset.add_argument('--resetfans', help='Reset fans to automatic (driver) control', action='store_true')
     groupActionReset.add_argument('--resetprofile', help='Reset Power Profile back to default', action='store_true')
     groupActionReset.add_argument('--resetpoweroverdrive',
-                                  help='Set the maximum GPU power back to the device deafult state',
+                                  help='Set the maximum GPU power back to the device default state',
                                   action='store_true')
     groupActionReset.add_argument('--resetxgmierr', help='Reset XGMI error count', action='store_true')
     groupActionReset.add_argument('--resetperfdeterminism', help='Disable performance determinism', action='store_true')
@@ -3920,7 +3943,7 @@ if __name__ == '__main__':
     groupAction.add_argument('--rasdisable', help='Disable RAS for specified block and error type', type=str, nargs=2,
                              metavar=('BLOCK', 'ERRTYPE'))
     groupAction.add_argument('--rasinject',
-                             help='Inject RAS poison for specified block (ONLY WORKS ON UNSECURE BOARDS)', type=str,
+                             help='Inject RAS poison for specified block (ONLY WORKS ON UNSECURED BOARDS)', type=str,
                              metavar='BLOCK', nargs=1)
     groupActionGpuReset.add_argument('--gpureset', help='Reset specified GPU (One GPU must be specified)',
                                      action='store_true')

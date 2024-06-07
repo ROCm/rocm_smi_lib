@@ -2,8 +2,9 @@
 
 This tool acts as a command line interface for manipulating
 and monitoring the amdgpu kernel, and is intended to replace
-and deprecate the existing rocm_smi.py CLI tool.
-It uses Ctypes to call the rocm_smi_lib API.
+and deprecate the existing rocm_smi.py CLI tool located at
+https://github.com/ROCm/ROC-smi.
+This tool uses Ctypes to call the rocm_smi_lib API.
 Recommended: At least one AMD GPU with ROCm driver installed
 Required: ROCm SMI library installed (librocm_smi64)
 
@@ -175,13 +176,13 @@ Set options:
   --rasenable BLOCK ERRTYPE                                        Enable RAS for specified block and error type
   --rasdisable BLOCK ERRTYPE                                       Disable RAS for specified block and error type
   --rasinject BLOCK                                                Inject RAS poison for specified block (ONLY WORKS ON
-                                                                   UNSECURE BOARDS)
+                                                                   UNSECURED BOARDS)
 
 Reset options:
   -r, --resetclocks                                                Reset clocks and OverDrive to default
   --resetfans                                                      Reset fans to automatic (driver) control
   --resetprofile                                                   Reset Power Profile back to default
-  --resetpoweroverdrive                                            Set the maximum GPU power back to the device deafult
+  --resetpoweroverdrive                                            Set the maximum GPU power back to the device default
                                                                    state
   --resetxgmierr                                                   Reset XGMI error count
   --resetperfdeterminism                                           Disable performance determinism

@@ -149,6 +149,7 @@ typedef enum {
                                          //!< information can be retrieved. By
                                          //!< default, only AMD devices are
                                          //!<  enumerated by RSMI.
+  RSMI_INIT_FLAG_THRAD_ONLY_MUTEX = 0x400000000000000,   //!< The mutex limit to thread
   RSMI_INIT_FLAG_RESRV_TEST1 = 0x800000000000000,  //!< Reserved for test
 } rsmi_init_flags_t;
 
@@ -310,13 +311,15 @@ typedef struct {
  * Event notification event types
  */
 typedef enum {
+  RSMI_EVT_NOTIF_NONE = KFD_SMI_EVENT_NONE,        //!< Unused
   RSMI_EVT_NOTIF_VMFAULT = KFD_SMI_EVENT_VMFAULT,  //!< VM page fault
   RSMI_EVT_NOTIF_FIRST = RSMI_EVT_NOTIF_VMFAULT,
   RSMI_EVT_NOTIF_THERMAL_THROTTLE = KFD_SMI_EVENT_THERMAL_THROTTLE,
   RSMI_EVT_NOTIF_GPU_PRE_RESET = KFD_SMI_EVENT_GPU_PRE_RESET,
   RSMI_EVT_NOTIF_GPU_POST_RESET = KFD_SMI_EVENT_GPU_POST_RESET,
+  RSMI_EVT_NOTIF_RING_HANG = KFD_SMI_EVENT_RING_HANG,
 
-  RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_GPU_POST_RESET
+  RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_RING_HANG
 } rsmi_evt_notification_type_t;
 
 /**
@@ -1290,7 +1293,7 @@ rsmi_status_t rsmi_dev_revision_get(uint32_t dv_ind, uint16_t *revision);
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  *
  */
-rsmi_status_t rsmi_dev_sku_get(uint32_t dv_ind, char *sku);
+rsmi_status_t rsmi_dev_sku_get(uint32_t dv_ind, uint16_t *sku);
 
 /**
  *  @brief Get the device vendor id associated with the device with provided

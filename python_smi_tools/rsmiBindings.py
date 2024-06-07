@@ -4,58 +4,26 @@
 # TODO: Get most (or all) of these from rocm_smi.h to avoid mismatches and redundancy
 
 from __future__ import print_function
-import ctypes.util
 from ctypes import *
 from enum import Enum
 
-import os
+import sys
 
-# Use ROCm installation path if running from standard installation
-# With File Reorg rsmiBindings.py will be installed in  /opt/rocm/libexec/rocm_smi.
-# relative path changed accordingly.
-# if ROCM_SMI_LIB_PATH is set, we can load 'librocm_smi64.so' from that location
-#
-# Library load is wrapped in a function so prints can be hidden for PRINT_JSON mode.
-path_librocm = str()
-def initRsmiBindings(silent=False):
-    def print_silent(*args):
-        if not silent:
-            print(args)
-
-    rocm_smi_lib_path = os.getenv('ROCM_SMI_LIB_PATH')
-    if (rocm_smi_lib_path != None):
-        path_librocm = rocm_smi_lib_path
-    else:
-        path_librocm = os.path.dirname(os.path.realpath(__file__)) + '/../../lib/librocm_smi64.so.7'
-
-    if not os.path.isfile(path_librocm):
-        print_silent('Unable to find %s . Trying /opt/rocm*' % path_librocm)
-        for root, dirs, files in os.walk('/opt', followlinks=True):
-            if 'librocm_smi64.so.7' in files:
-                path_librocm = os.path.join(os.path.realpath(root), 'librocm_smi64.so.7')
-        if os.path.isfile(path_librocm):
-            print_silent('Using lib from %s' % path_librocm)
-        else:
-            print('Unable to find librocm_smi64.so.7')
-
-    # ----------> TODO: Support static libs as well as SO
-    try:
-        cdll.LoadLibrary(path_librocm)
-        return CDLL(path_librocm)
-    except OSError:
-        print('Unable to load the rocm_smi library.\n'\
-              'Set LD_LIBRARY_PATH to the folder containing librocm_smi64.so.7\n'\
-              '{0}Please refer to https://github.com/'\
-              'RadeonOpenCompute/rocm_smi_lib for the installation guide.{1}'\
-              .format('\33[33m', '\033[0m'))
+if 'sphinx' in sys.modules:
+    path_librocm = str()
+    def initRsmiBindings(silent=False):
+        # Empty function for document generation
         exit()
+
+    SMI_HASH = '@PKG_VERSION_HASH@'
+else:
+    from rsmiBindingsInit import *
+
 
 # Device ID
 dv_id = c_uint64()
 # GPU ID
 gpu_id = c_uint32(0)
-
-SMI_HASH = '8e78352'
 
 
 # Policy enums
@@ -99,11 +67,11 @@ rsmi_status_verbose_err_out = {
     rsmi_status_t.RSMI_STATUS_OUT_OF_RESOURCES: 'Unable to acquire memory or other resource',
     rsmi_status_t.RSMI_STATUS_INTERNAL_EXCEPTION: 'An internal exception was caught',
     rsmi_status_t.RSMI_STATUS_INPUT_OUT_OF_BOUNDS: 'Provided input is out of allowable or safe range',
-    rsmi_status_t.RSMI_INITIALIZATION_ERROR: 'Error occured during rsmi initialization',
+    rsmi_status_t.RSMI_INITIALIZATION_ERROR: 'Error occurred during rsmi initialization',
     rsmi_status_t.RSMI_STATUS_NOT_YET_IMPLEMENTED: 'Requested function is not implemented on this setup',
     rsmi_status_t.RSMI_STATUS_NOT_FOUND: 'Item searched for but not found',
     rsmi_status_t.RSMI_STATUS_INSUFFICIENT_SIZE: 'Insufficient resources available',
-    rsmi_status_t.RSMI_STATUS_INTERRUPT: 'Interrupt occured during execution',
+    rsmi_status_t.RSMI_STATUS_INTERRUPT: 'Interrupt occurred during execution',
     rsmi_status_t.RSMI_STATUS_UNEXPECTED_SIZE: 'Unexpected amount of data read',
     rsmi_status_t.RSMI_STATUS_NO_DATA: 'No data found for the given input',
     rsmi_status_t.RSMI_STATUS_UNEXPECTED_DATA: 'Unexpected data received',
@@ -134,16 +102,18 @@ class rsmi_dev_perf_level_t(c_int):
     RSMI_DEV_PERF_LEVEL_UNKNOWN = 0x100
 
 
-notification_type_names = ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_RESET']
+notification_type_names = ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_PRE_RESET', 'GPU_POST_RESET', 'RING_HANG']
 
 
 class rsmi_evt_notification_type_t(c_int):
-    RSMI_EVT_NOTIF_VMFAULT = 0
+    RSMI_EVT_NOTIF_NONE = 0
+    RSMI_EVT_NOTIF_VMFAULT = 1
     RSMI_EVT_NOTIF_FIRST = RSMI_EVT_NOTIF_VMFAULT
-    RSMI_EVT_NOTIF_THERMAL_THROTTLE = 1
-    RSMI_EVT_NOTIF_GPU_PRE_RESET = 2
-    RSMI_EVT_NOTIF_GPU_POST_RESET = 3
-    RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_GPU_POST_RESET
+    RSMI_EVT_NOTIF_THERMAL_THROTTLE = 2
+    RSMI_EVT_NOTIF_GPU_PRE_RESET = 3
+    RSMI_EVT_NOTIF_GPU_POST_RESET = 4
+    RSMI_EVT_NOTIF_RING_HANG = 5
+    RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_RING_HANG
 
 
 class rsmi_voltage_metric_t(c_int):

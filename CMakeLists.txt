@@ -38,7 +38,7 @@ find_program (GIT NAMES git)
 
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "rsmi_pkg_ver")
-get_package_version_number("7.0.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+get_package_version_number("7.2.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
 message("Package version: ${PKG_VERSION_STR}")
 set(${ROCM_SMI_LIBS_TARGET}_VERSION_MAJOR "${CPACK_PACKAGE_VERSION_MAJOR}")
 set(${ROCM_SMI_LIBS_TARGET}_VERSION_MINOR "${CPACK_PACKAGE_VERSION_MINOR}")
@@ -79,7 +79,7 @@ endif()
 ## Compiler flags
 set(CMAKE_CXX_FLAGS
  "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-rtti")
-if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
     set(CMAKE_CXX_FLAGS
      "${CMAKE_CXX_FLAGS} -m64 -msse -msse2")
 endif()

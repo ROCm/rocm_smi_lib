@@ -99,11 +99,11 @@ rsmi_status_verbose_err_out = {
     rsmi_status_t.RSMI_STATUS_OUT_OF_RESOURCES: 'Unable to acquire memory or other resource',
     rsmi_status_t.RSMI_STATUS_INTERNAL_EXCEPTION: 'An internal exception was caught',
     rsmi_status_t.RSMI_STATUS_INPUT_OUT_OF_BOUNDS: 'Provided input is out of allowable or safe range',
-    rsmi_status_t.RSMI_INITIALIZATION_ERROR: 'Error occured during rsmi initialization',
+    rsmi_status_t.RSMI_INITIALIZATION_ERROR: 'Error occurred during rsmi initialization',
     rsmi_status_t.RSMI_STATUS_NOT_YET_IMPLEMENTED: 'Requested function is not implemented on this setup',
     rsmi_status_t.RSMI_STATUS_NOT_FOUND: 'Item searched for but not found',
     rsmi_status_t.RSMI_STATUS_INSUFFICIENT_SIZE: 'Insufficient resources available',
-    rsmi_status_t.RSMI_STATUS_INTERRUPT: 'Interrupt occured during execution',
+    rsmi_status_t.RSMI_STATUS_INTERRUPT: 'Interrupt occurred during execution',
     rsmi_status_t.RSMI_STATUS_UNEXPECTED_SIZE: 'Unexpected amount of data read',
     rsmi_status_t.RSMI_STATUS_NO_DATA: 'No data found for the given input',
     rsmi_status_t.RSMI_STATUS_UNEXPECTED_DATA: 'Unexpected data received',
@@ -134,16 +134,18 @@ class rsmi_dev_perf_level_t(c_int):
     RSMI_DEV_PERF_LEVEL_UNKNOWN = 0x100
 
 
-notification_type_names = ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_RESET']
+notification_type_names = ['VM_FAULT', 'THERMAL_THROTTLE', 'GPU_PRE_RESET', 'GPU_POST_RESET', 'RING_HANG']
 
 
 class rsmi_evt_notification_type_t(c_int):
-    RSMI_EVT_NOTIF_VMFAULT = 0
+    RSMI_EVT_NOTIF_NONE = 0
+    RSMI_EVT_NOTIF_VMFAULT = 1
     RSMI_EVT_NOTIF_FIRST = RSMI_EVT_NOTIF_VMFAULT
-    RSMI_EVT_NOTIF_THERMAL_THROTTLE = 1
-    RSMI_EVT_NOTIF_GPU_PRE_RESET = 2
-    RSMI_EVT_NOTIF_GPU_POST_RESET = 3
-    RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_GPU_POST_RESET
+    RSMI_EVT_NOTIF_THERMAL_THROTTLE = 2
+    RSMI_EVT_NOTIF_GPU_PRE_RESET = 3
+    RSMI_EVT_NOTIF_GPU_POST_RESET = 4
+    RSMI_EVT_NOTIF_RING_HANG = 5
+    RSMI_EVT_NOTIF_LAST = RSMI_EVT_NOTIF_RING_HANG
 
 
 class rsmi_voltage_metric_t(c_int):
