@@ -16,7 +16,7 @@ beautifulsoup4==4.12.3
     # via pydata-sphinx-theme
 breathe==4.35.0
     # via rocm-docs-core
-certifi==2024.6.2
+certifi==2024.7.4
     # via requests
 cffi==1.16.0
     # via
@@ -152,8 +152,6 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.7
     # via sphinx
 sphinxcontrib-serializinghtml==1.1.10
-    # via sphinx
-tomli==2.0.1
     # via sphinx
 tqdm==4.66.4
     # via mpire
