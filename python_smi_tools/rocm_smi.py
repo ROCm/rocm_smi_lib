@@ -32,7 +32,7 @@ from rsmiBindings import *
 # Patch version - Increment when adding a fix, set to 0 when minor is incremented
 # Hash  version - Shortened commit hash. Print here and not with lib for consistency with amd-smi
 SMI_MAJ = 2
-SMI_MIN = 2
+SMI_MIN = 3
 SMI_PAT = 0
 # SMI_HASH is provided by rsmiBindings
 __version__ = '%s.%s.%s+%s' % (SMI_MAJ, SMI_MIN, SMI_PAT, SMI_HASH)
@@ -196,9 +196,11 @@ def getBus(device, silent=False):
     # BDFID = ((DOMAIN & 0xFFFFFFFF) << 32) | ((PARTITION_ID & 0xF) << 28) | ((BUS & 0xFF) << 8) |
     # ((DEVICE & 0x1F) <<3 ) | (FUNCTION & 0x7)
     # bits [63:32] = domain
-    # bits [31:28] = partition id
+    # bits [31:28] or bits [2:0] = partition id 
     # bits [27:16] = reserved
-    # bits [15: 0] = pci bus/device/function
+    # bits [15:8]  = Bus
+    # bits [7:3] = Device
+    # bits [2:0] = Function (partition id maybe in bits [2:0]) <-- Fallback for non SPX modes
     domain = (bdfid.value >> 32) & 0xffffffff
     bus = (bdfid.value >> 8) & 0xff
     device = (bdfid.value >> 3) & 0x1f
@@ -215,19 +217,19 @@ def getPartitionId(device, silent=False):
     :param silent: Turn on to silence error output
         (you plan to handle manually). Default is off.
     """
-    bdfid = c_uint64(0)
-    ret = rocmsmi.rsmi_dev_pci_id_get(device, byref(bdfid))
+    partition_id = c_uint32(0)
+    ret = rocmsmi.rsmi_dev_partition_id_get(device, byref(partition_id))
 
     # BDFID = ((DOMAIN & 0xFFFFFFFF) << 32) | ((PARTITION_ID & 0xF) << 28) | ((BUS & 0xFF) << 8) |
     # ((DEVICE & 0x1F) <<3 ) | (FUNCTION & 0x7)
     # bits [63:32] = domain
-    # bits [31:28] = partition id
-    # bits [27:16]  = reserved
-    # bits [15: 0]  = pci bus/device/function
-    partition_num = (bdfid.value >> 28) & 0xf
-    pci_id = bdfid.value
-    partition_id = '{:d}'.format(partition_num)
-    if rsmi_ret_ok(ret, device, 'get_pci_id', silent):
+    # bits [31:28] or bits [2:0] = partition id 
+    # bits [27:16] = reserved
+    # bits [15:8]  = Bus
+    # bits [7:3] = Device
+    # bits [2:0] = Function (partition id maybe in bits [2:0]) <-- Fallback for non SPX modes
+    partition_id = '{:d}'.format(partition_id.value)
+    if rsmi_ret_ok(ret, device, 'rsmi_dev_partition_id_get', silent):
         return partition_id
 
 
@@ -1938,7 +1940,7 @@ def showAllConcise(deviceList):
     """
     global PRINT_JSON, appWidth
     if PRINT_JSON:
-        print('ERROR: Cannot print JSON/CSV output for concise output')
+        print('NOT_SUPPORTED: Cannot print JSON/CSV output for concise output')
         sys.exit(1)
 
     silent = True
@@ -2042,7 +2044,7 @@ def showAllConciseHw(deviceList):
     """
     global PRINT_JSON
     if PRINT_JSON:
-        print('ERROR: Cannot print JSON/CSV output for concise hardware output')
+        print('NOT_SUPPORTED: Cannot print JSON/CSV output for concise hardware output')
         sys.exit(1)
     header = ['GPU', 'NODE', 'DID', 'GUID', 'GFX VER', 'GFX RAS', 'SDMA RAS', 'UMC RAS', 'VBIOS', 'BUS'
                , 'PARTITION ID']
