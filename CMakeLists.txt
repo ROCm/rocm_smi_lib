@@ -38,7 +38,7 @@ find_program (GIT NAMES git)
 
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "rsmi_pkg_ver")
-get_package_version_number("7.2.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+get_package_version_number("7.3.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
 message("Package version: ${PKG_VERSION_STR}")
 set(${ROCM_SMI_LIBS_TARGET}_VERSION_MAJOR "${CPACK_PACKAGE_VERSION_MAJOR}")
 set(${ROCM_SMI_LIBS_TARGET}_VERSION_MINOR "${CPACK_PACKAGE_VERSION_MINOR}")
@@ -58,7 +58,7 @@ set(PKG_VERSION_PATCH "${CPACK_PACKAGE_VERSION_PATCH}")
 set(PKG_VERSION_NUM_COMMIT 0)
 
 ## Define default variable and variables for the optional build target
-##  rocm_smi_lib-dev
+##  rocm_smi_lib
 set(CMAKE_INSTALL_PREFIX "/opt/rocm" CACHE STRING "Default installation directory.")
 set(COMMON_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR} CACHE STRING "Location source code common root.")
 set(ROCM_SMI_PACKAGE rocm-smi-lib)
@@ -184,27 +184,31 @@ endif()
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_RPM_COMPONENT_INSTALL ON)
 
+# Add dependencies
+# no rocm-core
+# python doesn't need to be asan
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "python3")
+set(CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}")
+# Only add dependency on rocm-core if -DROCM_DEP_ROCMCORE=ON is given
+if(ROCM_DEP_ROCMCORE)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, rocm-core")
+    # rocm-core needs to be asan
+    # override original variable because CPACK_DEBIAN_PACKAGE_DEPENDS changed
+    set(CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}-asan")
+endif()
+# carefully reuse DEB's "DEPENDS" for RPM's "REQUIRES"
+set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_DEBIAN_PACKAGE_DEPENDS}")
+set(CPACK_RPM_ASAN_PACKAGE_REQUIRES "${CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS}")
+
 #Component Specific Configuration/Flags
-set(CPACK_DEBIAN_ASAN_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-asan)
 set(CPACK_DEBIAN_DEV_PACKAGE_NAME ${ROCM_SMI_PACKAGE})
+set(CPACK_DEBIAN_ASAN_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-asan)
 set(CPACK_DEBIAN_TESTS_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-tests)
-set(CPACK_RPM_ASAN_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-asan)
+set(CPACK_DEBIAN_STATIC_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-static-dev)
 set(CPACK_RPM_DEV_PACKAGE_NAME ${ROCM_SMI_PACKAGE})
+set(CPACK_RPM_ASAN_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-asan)
 set(CPACK_RPM_TESTS_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-tests)
-
-set (CPACK_DEBIAN_ASAN_PACKAGE_PROVIDES "${ROCM_SMI_PACKAGE}-asan")
-set (CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS "python3, rocm-core-asan")
-set (CPACK_DEBIAN_DEV_PACKAGE_PROVIDES "rocm-smi")
-set (CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "python3, rocm-core")
-set (CPACK_DEBIAN_TESTS_PACKAGE_PROVIDES "${ROCM_SMI_PACKAGE}-tests")
-set (CPACK_DEBIAN_TESTS_PACKAGE_DEPENDS "python3, rocm-core")
-set (CPACK_RPM_ASAN_PACKAGE_PROVIDES "${ROCM_SMI_PACKAGE}-asan")
-set (CPACK_RPM_ASAN_PACKAGE_REQUIRES "python3, rocm-core-asan")
-set (CPACK_RPM_DEV_PACKAGE_PROVIDES "rocm-smi")
-set (CPACK_RPM_DEV_PACKAGE_REQUIRES "python3, rocm-core")
-set (CPACK_RPM_TESTS_PACKAGE_PROVIDES "${ROCM_SMI_PACKAGE}-tests")
-set (CPACK_RPM_TESTS_PACKAGE_REQUIRES "python3, rocm-core")
-
+set(CPACK_RPM_STATIC_PACKAGE_NAME ${ROCM_SMI_PACKAGE}-static-devel)
 
 add_subdirectory("rocm_smi")
 add_subdirectory("oam")
@@ -320,9 +324,7 @@ if(DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
 else()
    set(CPACK_DEBIAN_PACKAGE_RELEASE "local")
 endif()
-set (CPACK_DEBIAN_PACKAGE_PROVIDES "rocm-smi")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "python3, rocm-core")
-set (CPACK_DEBIAN_PACKAGE_SUGGESTS "sudo")
+set(CPACK_DEBIAN_PACKAGE_SUGGESTS "sudo")
 
 ## Process the Debian install/remove scripts to update the CPACK variables
 configure_file ( ${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/postinst.in DEBIAN/postinst @ONLY )
@@ -340,8 +342,6 @@ endif()
 if(CPACK_RPM_PACKAGE_RELEASE)
   set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
 endif()
-set (CPACK_RPM_PACKAGE_PROVIDES "rocm-smi")
-set (CPACK_RPM_PACKAGE_REQUIRES "python3, rocm-core")
 
 
 # The line below doesn't currently work; it may be this issue:
@@ -362,15 +362,6 @@ set ( CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/post
 #Set the names now using CPACK utility
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
-# Remove dependency on rocm-core if -DROCM_DEP_ROCMCORE=ON not given to cmake
-if(NOT ROCM_DEP_ROCMCORE)
-  string(REGEX REPLACE ",? ?rocm-core-asan" "" CPACK_RPM_ASAN_PACKAGE_REQUIRES ${CPACK_RPM_ASAN_PACKAGE_REQUIRES})
-  string(REGEX REPLACE ",? ?rocm-core-asan" "" CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS ${CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS})
-  string(REGEX REPLACE ",? ?rocm-core" "" CPACK_RPM_DEV_PACKAGE_REQUIRES ${CPACK_RPM_DEV_PACKAGE_REQUIRES})
-  string(REGEX REPLACE ",? ?rocm-core" "" CPACK_DEBIAN_DEV_PACKAGE_DEPENDS ${CPACK_DEBIAN_DEV_PACKAGE_DEPENDS})
-  string(REGEX REPLACE ",? ?rocm-core" "" CPACK_RPM_PACKAGE_REQUIRES ${CPACK_RPM_PACKAGE_REQUIRES})
-  string(REGEX REPLACE ",? ?rocm-core" "" CPACK_DEBIAN_PACKAGE_DEPENDS ${CPACK_DEBIAN_PACKAGE_DEPENDS})
-endif()
 
 include (CPack)
 
@@ -388,3 +379,7 @@ cpack_add_component(
 
 cpack_add_component_group("tests")
 cpack_add_component(tests GROUP tests)
+if(NOT BUILD_SHARED_LIBS)
+  cpack_add_component_group("static")
+  cpack_add_component(dev GROUP static)
+endif()
