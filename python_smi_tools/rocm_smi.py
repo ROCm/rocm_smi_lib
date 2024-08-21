@@ -24,24 +24,7 @@ import trace
 from io import StringIO
 from time import ctime
 from subprocess import check_output
-from typing import TYPE_CHECKING
-
-# only used for type checking
-# pyright trips up and cannot find rsmiBindings without it
-if TYPE_CHECKING:
-    from rsmiBindings import *
-
-try:
-    from rsmiBindings import *
-except ImportError:
-    current_path = os.path.dirname(os.path.abspath(__file__))
-    additional_path = f"{current_path}/../libexec/rocm_smi"
-    sys.path.append(additional_path)
-    try:
-        from rsmiBindings import *
-    except ImportError:
-        print(f"Still couldn't import 'rsmiBindings'. Make sure it's installed in {additional_path}")
-        sys.exit(1)
+from rsmiBindings import *
 
 # rocmSmiLib_cli version. Increment this as needed.
 # Major version - Increment when backwards-compatibility breaks
@@ -50,7 +33,7 @@ except ImportError:
 # Hash  version - Shortened commit hash. Print here and not with lib for consistency with amd-smi
 SMI_MAJ = 2
 SMI_MIN = 3
-SMI_PAT = 1
+SMI_PAT = 0
 # SMI_HASH is provided by rsmiBindings
 __version__ = '%s.%s.%s+%s' % (SMI_MAJ, SMI_MIN, SMI_PAT, SMI_HASH)
 
@@ -213,7 +196,7 @@ def getBus(device, silent=False):
     # BDFID = ((DOMAIN & 0xFFFFFFFF) << 32) | ((PARTITION_ID & 0xF) << 28) | ((BUS & 0xFF) << 8) |
     # ((DEVICE & 0x1F) <<3 ) | (FUNCTION & 0x7)
     # bits [63:32] = domain
-    # bits [31:28] or bits [2:0] = partition id
+    # bits [31:28] or bits [2:0] = partition id 
     # bits [27:16] = reserved
     # bits [15:8]  = Bus
     # bits [7:3] = Device
@@ -240,7 +223,7 @@ def getPartitionId(device, silent=False):
     # BDFID = ((DOMAIN & 0xFFFFFFFF) << 32) | ((PARTITION_ID & 0xF) << 28) | ((BUS & 0xFF) << 8) |
     # ((DEVICE & 0x1F) <<3 ) | (FUNCTION & 0x7)
     # bits [63:32] = domain
-    # bits [31:28] or bits [2:0] = partition id
+    # bits [31:28] or bits [2:0] = partition id 
     # bits [27:16] = reserved
     # bits [15:8]  = Bus
     # bits [7:3] = Device
@@ -888,13 +871,7 @@ def printLog(device, metricName, value=None, extraSpace=False, useItalics=False)
     try:
         if extraSpace:
             print('\n', end='')
-
-        # Handle non UTF-8 locale
-        try:
-            print(logstr + '\n', end='')
-        except UnicodeEncodeError:
-            print(logstr.encode('ascii', 'ignore').decode('ascii'))
-
+        print(logstr + '\n', end='')
         sys.stdout.flush()
     # when piped into programs like 'head' - print throws an error.
     # silently ignore instead
