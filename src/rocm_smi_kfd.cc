@@ -464,30 +464,30 @@ int GetProcessInfoForPID(uint32_t pid, rsmi_process_info_t *proc,
     vram_str_path += std::to_string(gpu_id);
 
     err = ReadSysfsStr(vram_str_path, &tmp);
-    if (err) {
+    if (err==0) {
+      if (!is_number(tmp)) {
+        return EINVAL;
+      }
+      proc->vram_usage += std::stoull(tmp);
+    }
+    else if (err!=2){
       return err;
     }
-
-    if (!is_number(tmp)) {
-      return EINVAL;
-    }
-
-    proc->vram_usage += std::stoull(tmp);
 
     std::string sdma_str_path = proc_str_path;
     sdma_str_path += "/sdma_";
     sdma_str_path += std::to_string(gpu_id);
 
     err = ReadSysfsStr(sdma_str_path, &tmp);
-    if (err) {
+    if (err==0) {
+      if (!is_number(tmp)) {
+        return EINVAL;
+      }
+      proc->sdma_usage += std::stoull(tmp);
+    }
+    else if(err!=2){
       return err;
     }
-
-    if (!is_number(tmp)) {
-      return EINVAL;
-    }
-
-    proc->sdma_usage += std::stoull(tmp);
 
     // Build the path and read from Sysfs file, info that
     // encodes Compute Unit usage by a process of interest
