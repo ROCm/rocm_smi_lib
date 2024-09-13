@@ -31,7 +31,7 @@ click==8.1.7
     #   sphinx-external-toc
 click-log==0.4.0
     # via doxysphinx
-cryptography==42.0.8
+cryptography==43.0.1
     # via pyjwt
 deprecated==1.2.14
     # via pygithub
@@ -152,8 +152,6 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.7
     # via sphinx
 sphinxcontrib-serializinghtml==1.1.10
-    # via sphinx
-tomli==2.0.1
     # via sphinx
 tqdm==4.66.4
     # via mpire
