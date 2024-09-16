@@ -1,22 +1,30 @@
+.. meta::
+   :description: Learn about using the ROCm SMI library with Python.
+   :keywords: install, SMI, library, api, Python, system management interface
 
-# Using Python in ROCm SMI
+************************
+Using Python in ROCm SMI
+************************
 
 This tool acts as a command line interface for manipulating and monitoring the amdgpu kernel, and is intended to replace and deprecate the existing rocm_smi.py CLI tool.
 It uses Ctypes to call the rocm_smi_lib API. Recommended: At least one AMD GPU with ROCm driver installed
 
 Required: ROCm SMI library installed (librocm_smi64)
 
-## Installation
+Installation
+============
 
-Follow the installation procedure for rocm_smi_lib. Refer to the [installation](../install/install.rst) section.
+Follow the installation procedure for rocm_smi_lib. Refer to :ref:`../install/install`.
 
-LD_LIBRARY_PATH  must be set to the folder containing librocm_smi64.
+``LD_LIBRARY_PATH``  must be set to the folder containing ``librocm_smi64``.
 
-## Version
+Version
+-------
 
 The SMI will report two "versions", ROCM-SMI version and other is ROCM-SMI-LIB version.
 
 - ROCM-SMI version is the CLI/tool version number with commit ID appended after + sign.
+
 - ROCM-SMI-LIB version is the library package version number.
   
 ```
@@ -24,7 +32,8 @@ ROCM-SMI version: 2.0.0+8e78352
 ROCM-SMI-LIB version: 6.1.0
 ```
 
-## Usage
+Usage
+=====
 
 For detailed and up to date usage information, we recommend consulting the help:
 
@@ -200,7 +209,9 @@ Output options:
   --csv                                                            Print output in CSV format
 ```
 
-## Detailed Option Descriptions
+Detailed Option Descriptions
+============================
+
 `--setextremum <min/max> <sclk or mclk> <value in MHz to set to>`  
 Provided ASIC support, users can now set a maximum or minimum sclk or mclk value through our Python CLI tool (`rocm-smi --setextremum max sclk 1500`). See example below.  
 
@@ -422,7 +433,8 @@ is calculated in a generic sense.
 as well as the total available for those partitions. The percentage shown there indicates the
 amount of used memory in terms of current allocations
 
-## OverDrive settings
+OverDrive settings
+==================
 
 Enabling OverDrive requires both a card that support OverDrive and a driver parameter that enables its use.
 Because OverDrive features can damage your card, most workstation and server GPUs cannot use OverDrive.
@@ -438,17 +450,30 @@ As an example, if the ppfeaturemask is set to 0xffffbfff (1111111111111111101111
 then enabling the OverDrive bit would make it 0xffffffff (11111111111111111111111111111111).
 
 These are the flags that require OverDrive functionality to be enabled for the flag to work:
-    --showclkvolt
-    --showvoltagerange
-    --showvc
-    --showsclkrange
-    --showmclkrange
-    --setslevel
-    --setmlevel
-    --setoverdrive
-    --setpoweroverdrive
-    --resetpoweroverdrive
-    --setvc
-    --setsrange
-    --setmrange
+
+``--showclkvolt``
+
+``--showvoltagerange``
+
+``--showvc``
+
+``--showsclkrange``
+
+``--showmclkrange``
+
+``--setslevel``
+
+``--setmlevel``
+
+``--setoverdrive``
+
+``--setpoweroverdrive``
+
+``--resetpoweroverdrive``
+
+``--setvc``
+
+``--setsrange``
+
+``--setmrange``
 

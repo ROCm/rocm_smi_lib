@@ -1,23 +1,29 @@
-
 .. meta::
-  :description: Using ROCm SMI
-  :keywords: install, SMI, library, api, AMD, ROCm
+  :description: Learn about using the ROCm SMI library with C++.
+  :keywords: install, SMI, library, api, cpp, system management interface
 
-
+*********************  
 Using C++ in ROCm SMI
 *********************  
 
-Device indices 
----------------
+Installation
+============
+
+Follow the installation procedure for rocm_smi_lib. Refer to the [installation](../install/install.rst) section.
+
+``LD_LIBRARY_PATH`` must be set to the folder containing ``librocm_smi64``.
+
+Device indices
+==============
 
 Many of the functions in the library take a "device index". The device index is a number greater than or equal to 0, and less than the number of devices detected, as determined by `rsmi_num_monitor_devices()`. The index is used to distinguish the detected devices from one another. It is important to note that a device may end up with a different index after a reboot, so an index should not be relied upon to be constant over reboots.
 
 Hello ROCm SMI
 ================
 
-The only required ROCm-SMI call for any program that wants to use ROCm-SMI is the `rsmi_init()` call. This call initializes some internal data structures that will be used by subsequent ROCm-SMI calls. 
+The only required ROCm-SMI call for any program that wants to use ROCm-SMI is the ``rsmi_init()`` call. This call initializes some internal data structures that will be used by subsequent ROCm-SMI calls. 
 
-When ROCm-SMI is no longer being used, `rsmi_shut_down()` should be called. This provides a way to do any releasing of resources that ROCm-SMI may have held. In many cases, this may have no effect, but may be necessary in future versions of the library.
+When ROCm-SMI is no longer being used, ``rsmi_shut_down()`` should be called. This provides a way to do any releasing of resources that ROCm-SMI may have held. In many cases, this may have no effect, but may be necessary in future versions of the library.
 
 A simple "Hello World" type program that displays the device ID of detected devices would look like this:
 
