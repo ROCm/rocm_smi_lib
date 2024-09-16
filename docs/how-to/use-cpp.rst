@@ -1,17 +1,21 @@
 .. meta::
-  :description: Learn about using the ROCm SMI library with C++.
-  :keywords: install, SMI, library, api, cpp, system management interface
+   :description: Learn about using the ROCm SMI library with C++.
+   :keywords: install, SMI, library, api, cpp, system management interface
 
-*********************  
-Using C++ in ROCm SMI
-*********************  
+***********************
+Using ROCm SMI with C++
+***********************
 
 Installation
 ============
 
-Follow the installation procedure for rocm_smi_lib. Refer to the [installation](../install/install.rst) section.
+Follow the installation procedure for rocm_smi_lib. Refer to the :doc:`installation section <../install/install>`.
 
-``LD_LIBRARY_PATH`` must be set to the folder containing ``librocm_smi64``.
+.. note::
+
+   ``hipcc`` and other compilers will not automatically link in the ``librocm_smi64`` dynamic library. To ensure the
+   ``librocm_smi64.so`` can be located, you must either set the ``LD_LIBRARY_PATH`` environment variable to the
+   directory containing ``librocm_smi64.so`` (usually ``/opt/rocm/lib``) or pass the ``-lrocm_smi64`` flag to the compiler.
 
 Device indices
 ==============
