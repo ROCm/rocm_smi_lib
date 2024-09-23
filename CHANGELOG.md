@@ -2,43 +2,23 @@
 
 Full documentation for rocm_smi_lib is available at [https://rocm.docs.amd.com/](https://rocm.docs.amd.com/projects/rocm_smi_lib/en/latest/).
 
-***All information listed below is for reference and subject to change.***
+## ROCm SMI 7.3.0 for ROCm 6.2.1
 
-## rocm_smi_lib for ROCm 6.2.1
+### Optimizations
 
-### Added
+* Improved handling of UnicodeEncodeErrors with non UTF-8 locales. Non UTF-8 locales were causing crashes on UTF-8 special characters.
 
-- N/A
+### Resolved issues
 
-### Changed
+* Fixed an issue where the Compute Partition tests segfaulted when AMDGPU was loaded with optional parameters.
 
-- N/A
+### Known issues
 
-### Optimized
+* When setting CPX as a partition mode, there is a DRM node limit of 64. This is a known limitation when multiple drivers are using the DRM nodes. The `ls /sys/class/drm` command can be used to see the number of DRM nodes, and the following steps can be used to remove unnecessary drivers:
 
-- **Improved handling of UnicodeEncodeErrors with non UTF-8 locales**  
-Non UTF-8 locales were causing crashing on UTF-8 special characters
-
-### Fixed
-
-- **Fixed rsmitstReadWrite.TestComputePartitionReadWrite segfault**  
-Segfault was caused due to unhandled start conditions:
-
-1) When setting CPX as a partition mode, there is a DRM node limitation of 64.
-This is a known limitation of the driver, if other drivers are using other DRM nodes (ex. using PCIe space, such as ast).  
-The number of DRM nodes can be checked via `ls /sys/class/drm`  
-Recommended steps for removing unnecessary drivers:  
-a. unloading amdgpu - `sudo rmmod amdgpu`  
-b. removing unnecessary driver(s) - ex. `sudo rmmod ast`  
-c. reload amgpu - `sudo modprobe amdgpu`
-
-2) Since user could start amdgpu in different partition modes (ex. `sudo modprobe amdgpu user_partt_mode=1`).
-Test needed to keep track of total number of devices, in order to ensure test comes back to the original configuration.
-The test segfault could be seen on all MI3x ASICs, if brought up in a non-SPX configuration upon boot.
-
-### Known Issues
-
-- N/A
+    1. Unload AMDGPU: `sudo rmmod amdgpu`.
+    2. Remove any unnecessary drivers using `rmmod`. For example, to remove an AST driver, run `sudo rmmod ast`.
+    3. Reload AMDGPU using `modprobe`: `sudo modprobe amdgpu`.
 
 ## rocm_smi_lib for ROCm 6.2
 
