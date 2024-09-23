@@ -2,7 +2,23 @@
 
 Full documentation for rocm_smi_lib is available at [https://rocm.docs.amd.com/](https://rocm.docs.amd.com/projects/rocm_smi_lib/en/latest/).
 
-***All information listed below is for reference and subject to change.***
+## ROCm SMI 7.3.0 for ROCm 6.2.1
+
+### Optimizations
+
+* Improved handling of UnicodeEncodeErrors with non UTF-8 locales. Non UTF-8 locales were causing crashes on UTF-8 special characters.
+
+### Resolved issues
+
+* Fixed an issue where the Compute Partition tests segfaulted when AMDGPU was loaded with optional parameters.
+
+### Known issues
+
+* When setting CPX as a partition mode, there is a DRM node limit of 64. This is a known limitation when multiple drivers are using the DRM nodes. The `ls /sys/class/drm` command can be used to see the number of DRM nodes, and the following steps can be used to remove unnecessary drivers:
+
+    1. Unload AMDGPU: `sudo rmmod amdgpu`.
+    2. Remove any unnecessary drivers using `rmmod`. For example, to remove an AST driver, run `sudo rmmod ast`.
+    3. Reload AMDGPU using `modprobe`: `sudo modprobe amdgpu`.
 
 ## rocm_smi_lib for ROCm 6.2
 
