@@ -1158,19 +1158,19 @@ typedef union id {
         uint64_t id;           //!< uint64_t representation of value
         const char *name;      //!< name string (applicable to functions only)
         union {
-            //!< Used for ::rsmi_memory_type_t variants
+            /** Used for ::rsmi_memory_type_t variants */
             rsmi_memory_type_t memory_type;
-            //!< Used for ::rsmi_temperature_metric_t variants
+            /** Used for ::rsmi_temperature_metric_t variants */
             rsmi_temperature_metric_t temp_metric;
-            //!< Used for ::rsmi_event_type_t variants
+            /** Used for ::rsmi_event_type_t variants */
             rsmi_event_type_t evnt_type;
-            //!< Used for ::rsmi_event_group_t variants
+            /** Used for ::rsmi_event_group_t variants */
             rsmi_event_group_t evnt_group;
-            //!< Used for ::rsmi_clk_type_t variants
+            /** Used for ::rsmi_clk_type_t variants */
             rsmi_clk_type_t clk_type;
-            //!< Used for ::rsmi_fw_block_t variants
+            /** Used for ::rsmi_fw_block_t variants */
             rsmi_fw_block_t fw_block;
-            //!< Used for ::rsmi_gpu_block_t variants
+            /** Used for ::rsmi_gpu_block_t variants */
             rsmi_gpu_block_t gpu_block_type;
         };
 } rsmi_func_id_value_t;
