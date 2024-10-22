@@ -778,7 +778,7 @@ uint32_t RocmSMI::DiscoverAmdgpuDevices(void) {
     int ret_domain =
       read_node_properties(node_id, "domain", &domain);
     if (ret_gpu_id == 0 &&
-      ~(ret_unique_id != 0 || ret_loc_id != 0 || ret_unique_id != 0)) {
+      ~(ret_unique_id != 0 || ret_loc_id != 0 || ret_domain != 0)) {
         // Do not try to build a node if one of these fields
         // do not exist in KFD (0 as values okay)
       systemNode myNode;
