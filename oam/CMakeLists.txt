@@ -94,7 +94,9 @@ endif ()
 # use the target_include_directories() command to specify the include directories for the target
 target_include_directories(${OAM_TARGET}
                            PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+                           "$<BUILD_INTERFACE:${DRM_INCLUDE_DIRS}>"
+			   "$<BUILD_INTERFACE:${AMDGPU_DRM_INCLUDE_DIRS}>"
+			   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                            "$<INSTALL_INTERFACE:{OAM_NAME}/include>")
 
 ## Add the install directives for the runtime library.
