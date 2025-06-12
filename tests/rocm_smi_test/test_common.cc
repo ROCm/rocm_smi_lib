@@ -141,7 +141,8 @@ static const struct option long_options[] = {
 static const char* short_options = "i:v:m:fr";
 
 static const std::map<uint32_t, std::string> kVoltSensorNameMap = {
-    {RSMI_VOLT_TYPE_VDDGFX, "Vddgfx"},
+  {RSMI_VOLT_TYPE_VDDGFX, "Vddgfx"},
+  {RSMI_VOLT_TYPE_VDDNB, "Vddnb"},
 };
 
 static void PrintHelp(void) {

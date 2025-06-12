@@ -109,6 +109,7 @@ static const char *kTempSensorTypeJunctionName = "junction";
 static const char *kTempSensorTypeEdgeName = "edge";
 
 static const char *kTempSensorTypeVddgfxName = "vddgfx";
+static const char *kTempSensorTypeVddnbName = "vddnb";
 
 
 static const std::map<std::string, rsmi_temperature_type_t>
@@ -121,6 +122,7 @@ static const std::map<std::string, rsmi_temperature_type_t>
 static const std::map<std::string, rsmi_voltage_type_t>
                                                         kVoltSensorNameMap = {
     {kTempSensorTypeVddgfxName, RSMI_VOLT_TYPE_VDDGFX},
+    {kTempSensorTypeVddnbName, RSMI_VOLT_TYPE_VDDNB},
 };
 
 static const std::map<MonitorTypes, const char *> kMonitorNameMap = {
