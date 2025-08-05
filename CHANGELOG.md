@@ -4,6 +4,44 @@ Full documentation for rocm_smi_lib is available at [https://rocm.docs.amd.com/]
 
 ***All information listed below is for reference and subject to change.***
 
+## rocm_smi_lib for ROCm 6.4.3
+
+### Added
+
+- **Added support to get GPU Board voltage**.  
+
+```cli
+    $ amd-smi metric --voltage
+        GPU: 0
+            VOLTAGE:
+                VDDBOARD: 52536 mV
+                ...
+```
+
+### Changed
+
+- N/A
+
+### Removed
+
+- N/A
+
+### Optimized
+
+- N/A
+
+### Resolved Issues
+
+- N/A
+
+### Upcoming changes
+
+- N/A
+
+### Known issues
+
+- N/A
+
 ## rocm_smi_lib for ROCm 6.4.1
 
 ### Added
