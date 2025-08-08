@@ -1296,7 +1296,8 @@ def setPerformanceLevel(deviceList, level):
     @param level: Performance Level to set
     """
     printLogSpacer(' Set Performance Level ')
-    validLevels = ['auto', 'low', 'high', 'manual']
+    validLevels = ['auto', 'low', 'high', 'manual',
+                   'stable_std', 'stable_peak', 'stable_min_mclk', 'stable_min_sclk']
     for device in deviceList:
         if level not in validLevels:
             printErrLog(device, 'Unable to set Performance Level')
