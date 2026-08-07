@@ -52,7 +52,7 @@ usage: rocm-smi [-h] [-V] [-d DEVICE [DEVICE ...]] [--alldevices] [--showhw] [-a
                 [--setprofile SETPROFILE] [--setperfdeterminism SCLK]
                 [--setcomputepartition {CPX,SPX,DPX,TPX,QPX,cpx,spx,dpx,tpx,qpx}]
                 [--setmemorypartition {NPS1,NPS2,NPS4,NPS8,nps1,nps2,nps4,nps8}] [--rasenable BLOCK ERRTYPE]
-                [--rasdisable BLOCK ERRTYPE] [--rasinject BLOCK] [--gpureset] [--load FILE | --save FILE]
+                [--rasdisable BLOCK ERRTYPE] [--rasinject BLOCK ERRTYPE] [--gpureset] [--load FILE | --save FILE]
                 [--autorespond RESPONSE] [--loglevel LEVEL] [--json] [--csv]
 
 AMD ROCm System Management Interface | ROCM-SMI version: 2.0.0+8e78352
@@ -174,7 +174,7 @@ Set options:
   --setmemorypartition {NPS1,NPS2,NPS4,NPS8,nps1,nps2,nps4,nps8}   Set memory partition
   --rasenable BLOCK ERRTYPE                                        Enable RAS for specified block and error type
   --rasdisable BLOCK ERRTYPE                                       Disable RAS for specified block and error type
-  --rasinject BLOCK                                                Inject RAS poison for specified block (ONLY WORKS ON
+  --rasinject BLOCK ERRTYPE                                         Inject RAS poison for specified block and error type (ONLY WORKS ON
                                                                    UNSECURED BOARDS)
 
 Reset options:

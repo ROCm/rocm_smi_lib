@@ -4418,8 +4418,8 @@ if __name__ == '__main__':
     groupAction.add_argument('--rasdisable', help='Disable RAS for specified block and error type', type=str, nargs=2,
                              metavar=('BLOCK', 'ERRTYPE'))
     groupAction.add_argument('--rasinject',
-                             help='Inject RAS poison for specified block (ONLY WORKS ON UNSECURED BOARDS)', type=str,
-                             metavar='BLOCK', nargs=1)
+                             help='Inject RAS poison for specified block and error type (ONLY WORKS ON UNSECURED BOARDS)',
+                             type=str, metavar=('BLOCK', 'ERRTYPE'), nargs=2)
     groupActionGpuReset.add_argument('--gpureset', help='Reset specified GPU (One GPU must be specified)',
                                      action='store_true')
 
